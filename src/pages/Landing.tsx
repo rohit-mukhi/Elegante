@@ -68,10 +68,10 @@ export default function Landing() {
               </p>
               <div className="flex gap-4">
                 <button
-                  onClick={() => navigate('/mirror')}
+                  onClick={() => navigate('/home')}
                   className="px-8 py-4 bg-gradient-to-r from-yellow-400 to-gray-300 text-purple-950 rounded-full font-bold text-lg hover:shadow-2xl hover:shadow-yellow-400/50 transition transform hover:scale-105"
                 >
-                  Start Styling
+                  Get Started
                 </button>
                 <button className="px-8 py-4 border-2 border-yellow-400 text-yellow-400 rounded-full font-bold text-lg hover:bg-yellow-400/10 transition">
                   Learn More
