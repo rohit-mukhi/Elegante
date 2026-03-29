@@ -230,6 +230,131 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Feature Cards */}
+      <div className="px-6 pb-12">
+        <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-8">
+          {/* Virtual Try-On Card */}
+          <div
+            data-aos="fade-up"
+            data-aos-duration="1000"
+            onClick={() => navigate('/mirror')}
+            className="group relative overflow-hidden bg-gradient-to-br from-violet-900/70 to-purple-950/70 border border-yellow-400/30 rounded-3xl p-8 hover:border-yellow-400/60 transition cursor-pointer hover:shadow-2xl hover:shadow-yellow-400/20"
+          >
+            <div className="relative z-10">
+              <div className="text-7xl mb-6">🪞</div>
+              <h3 className="text-3xl font-bold text-white mb-4">Virtual Try-On</h3>
+              <p className="text-gray-200 text-lg mb-6 leading-relaxed">
+                See how clothes look on you in real-time using your camera. Our AI-powered mirror technology creates an immersive shopping experience from the comfort of your home.
+              </p>
+              <div className="flex items-center text-yellow-400 font-semibold group-hover:translate-x-2 transition">
+                Try Now <span className="ml-2">→</span>
+              </div>
+            </div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-400/10 rounded-full blur-3xl group-hover:bg-yellow-400/20 transition"></div>
+          </div>
+
+          {/* AI Stylist Card */}
+          <div
+            data-aos="fade-up"
+            data-aos-duration="1000"
+            data-aos-delay="200"
+            onClick={() => navigate('/stylist')}
+            className="group relative overflow-hidden bg-gradient-to-br from-violet-900/70 to-purple-950/70 border border-yellow-400/30 rounded-3xl p-8 hover:border-yellow-400/60 transition cursor-pointer hover:shadow-2xl hover:shadow-yellow-400/20"
+          >
+            <div className="relative z-10">
+              <div className="text-7xl mb-6">✨</div>
+              <h3 className="text-3xl font-bold text-white mb-4">AI Stylist</h3>
+              <p className="text-gray-200 text-lg mb-6 leading-relaxed">
+                Get personalized fashion recommendations based on your skin tone, body type, and style preferences. Our AI analyzes your features using 12-season color theory.
+              </p>
+              <div className="flex items-center text-yellow-400 font-semibold group-hover:translate-x-2 transition">
+                Get Styled <span className="ml-2">→</span>
+              </div>
+            </div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-400/10 rounded-full blur-3xl group-hover:bg-yellow-400/20 transition"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="border-t border-yellow-400/20 bg-purple-950/65">
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            {/* Brand */}
+            <div>
+              <h3 className="text-2xl font-bold text-white mb-4">Elegante</h3>
+              <p className="text-gray-300 leading-relaxed">
+                Your AI-powered fashion companion. Discover your perfect style with cutting-edge technology.
+              </p>
+            </div>
+
+            {/* Quick Links */}
+            <div>
+              <h4 className="text-lg font-bold text-white mb-4">Quick Links</h4>
+              <ul className="space-y-2">
+                <li>
+                  <a href="#" className="text-gray-300 hover:text-yellow-400 transition">About Us</a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-300 hover:text-yellow-400 transition">How It Works</a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-300 hover:text-yellow-400 transition">Features</a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-300 hover:text-yellow-400 transition">Pricing</a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Support */}
+            <div>
+              <h4 className="text-lg font-bold text-white mb-4">Support</h4>
+              <ul className="space-y-2">
+                <li>
+                  <a href="#" className="text-gray-300 hover:text-yellow-400 transition">Help Center</a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-300 hover:text-yellow-400 transition">Contact Us</a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-300 hover:text-yellow-400 transition">Privacy Policy</a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-300 hover:text-yellow-400 transition">Terms of Service</a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Connect */}
+            <div>
+              <h4 className="text-lg font-bold text-white mb-4">Connect</h4>
+              <ul className="space-y-2">
+                <li>
+                  <a href="#" className="text-gray-300 hover:text-yellow-400 transition">📘 Facebook</a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-300 hover:text-yellow-400 transition">📷 Instagram</a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-300 hover:text-yellow-400 transition">🐦 Twitter</a>
+                </li>
+                <li>
+                  <a href="#" className="text-gray-300 hover:text-yellow-400 transition">💼 LinkedIn</a>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="pt-8 border-t border-yellow-400/20 text-center">
+            <p className="text-gray-300">
+              © 2024 Elegante. Powered by AI & Color Science. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </footer>
+
       <style>{`
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
