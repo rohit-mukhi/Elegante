@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import AOS from 'aos'
+import 'aos/dist/aos.css'
+import Hamburger from 'hamburger-react'
 
 const deals = [
   { id: 1, title: 'Summer Sale - Up to 50% Off', image: '🌞', bg: 'from-yellow-400 to-orange-500' },
@@ -74,6 +77,32 @@ export default function Home() {
   const navigate = useNavigate()
   const [currentSlide, setCurrentSlide] = useState(0)
   const [selectedCategory, setSelectedCategory] = useState('mens')
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    AOS.init({ 
+      duration: 800, 
+      once: false,
+      mirror: true
+    })
+  }, [])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false)
+      }
+    }
+
+    if (isMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isMenuOpen])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -85,23 +114,41 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-900">
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 backdrop-blur-md bg-purple-950/85 border-b border-yellow-500/25">
+      <nav ref={menuRef} className="fixed top-0 w-full z-50 backdrop-blur-md bg-purple-950/85 border-b border-yellow-500/25">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="text-3xl font-bold text-white cursor-pointer" onClick={() => navigate('/')}>
             Elegante
           </div>
-          <button
-            onClick={() => navigate('/mirror')}
-            className="px-6 py-2 bg-gradient-to-r from-yellow-400 to-gray-300 text-purple-950 rounded-full font-semibold hover:shadow-lg hover:shadow-yellow-400/50 transition"
-          >
-            Try Mirror
-          </button>
+          <Hamburger toggled={isMenuOpen} toggle={setIsMenuOpen} color="#facc15" size={24} />
         </div>
+        {isMenuOpen && (
+          <div className="bg-purple-950/90 backdrop-blur-md border-t border-yellow-500/25 p-4">
+            <button
+              onClick={() => {
+                navigate('/profile')
+                setIsMenuOpen(false)
+              }}
+              className="w-full text-left px-4 py-3 text-white hover:text-yellow-400 transition rounded-lg hover:bg-purple-900/50"
+            >
+              👤 Profile
+            </button>
+            <button
+              onClick={() => {
+                setIsMenuOpen(false)
+                // Add signout logic here
+                navigate('/')
+              }}
+              className="w-full text-left px-4 py-3 text-white hover:text-yellow-400 transition rounded-lg hover:bg-purple-900/50"
+            >
+              🚪 Sign Out
+            </button>
+          </div>
+        )}
       </nav>
 
       {/* Carousel */}
       <div className="pt-20 px-6">
-        <div className="max-w-7xl mx-auto mt-6">
+        <div className="max-w-7xl mx-auto mt-6" data-aos="fade-down">
           <div className="relative h-64 rounded-3xl overflow-hidden">
             {deals.map((deal, index) => (
               <div
@@ -136,8 +183,8 @@ export default function Home() {
       {/* Categories */}
       <div className="px-6 mt-12">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-white mb-6">Shop by Category</h2>
-          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+          <h2 className="text-3xl font-bold text-white mb-6" data-aos="fade-right">Shop by Category</h2>
+          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide" data-aos="fade-up">
             {categories.map((category) => (
               <button
                 key={category.id}
@@ -159,11 +206,13 @@ export default function Home() {
       {/* Products */}
       <div className="px-6 mt-8 pb-12">
         <div className="max-w-7xl mx-auto">
-          <h3 className="text-2xl font-bold text-white mb-6 capitalize">{selectedCategory} Collection</h3>
+          <h3 className="text-2xl font-bold text-white mb-6 capitalize" data-aos="fade-right">{selectedCategory} Collection</h3>
           <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
-            {productsByCategory[selectedCategory].map((product) => (
+            {productsByCategory[selectedCategory].map((product, index) => (
               <div
                 key={product.id}
+                data-aos="zoom-in"
+                data-aos-delay={index * 100}
                 className="flex-shrink-0 w-64 bg-gradient-to-br from-violet-900/55 to-purple-950/55 border border-yellow-400/25 rounded-2xl p-6 hover:border-yellow-400/55 transition cursor-pointer"
               >
                 <div className="text-7xl mb-4 text-center">{product.image}</div>
