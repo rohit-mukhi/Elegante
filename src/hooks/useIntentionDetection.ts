@@ -92,66 +92,96 @@ export function useIntentionDetection() {
     }
   }
 
-  // Fallback keyword-based intention detection
+  // Fallback keyword-based intention detection with fuzzy matching
   const keywordBasedIntention = (transcript: string): IntentionResult | null => {
     const text = transcript.toLowerCase().trim()
     
-    // Navigation intents
-    if (text.includes('home') || text.includes('go home') || text.includes('main page')) {
+    // Navigation intents - with fuzzy matching for mishearings
+    if (text.includes('home') || text.includes('hom') || text.includes('go home') || text.includes('main page') || text.includes('homepage')) {
       return { intent: 'navigate_home', confidence: 0.9 }
     }
-    if (text.includes('mirror') || text.includes('try on') || text.includes('virtual try')) {
+    
+    // Mirror variations: mirror, mira, meer, virtual try, try on
+    if (text.includes('mirror') || text.includes('mira') || text.includes('meer') || text.includes('try on') || text.includes('virtual try') || text.includes('tryon')) {
       return { intent: 'navigate_mirror', confidence: 0.9 }
     }
-    if (text.includes('stylist') || text.includes('color') || text.includes('style') || text.includes('recommendation')) {
+    
+    // Stylist variations: stylist, stylish, styles, styling, style, color, colours
+    if (text.includes('stylist') || text.includes('stylish') || text.includes('styles') || text.includes('styling') || text.includes('style') || text.includes('color') || text.includes('colour') || text.includes('recommendation') || text.includes('suggest')) {
       return { intent: 'navigate_stylist', confidence: 0.9 }
     }
-    if (text.includes('profile') || text.includes('my profile') || text.includes('account')) {
+    
+    // Profile variations
+    if (text.includes('profile') || text.includes('profil') || text.includes('my profile') || text.includes('account') || text.includes('settings')) {
       return { intent: 'navigate_profile', confidence: 0.9 }
     }
     
-    // Category selection intents
-    if (text.includes('mens') || text.includes('men')) {
+    // Category selection intents with fuzzy matching
+    // Mens: mens, men, man, male
+    if (text.includes('mens') || text.includes('men') || text.includes('man') || text.includes('male') || text.includes('boys')) {
       return { intent: 'select_category_mens', confidence: 0.85 }
     }
-    if (text.includes('womens') || text.includes('women') || text.includes('ladies')) {
+    
+    // Womens: womens, women, woman, female, ladies, girls
+    if (text.includes('womens') || text.includes('women') || text.includes('woman') || text.includes('female') || text.includes('ladies') || text.includes('girls')) {
       return { intent: 'select_category_womens', confidence: 0.85 }
     }
-    if (text.includes('kids') || text.includes('children')) {
+    
+    // Kids: kids, kid, children, child
+    if (text.includes('kids') || text.includes('kid') || text.includes('children') || text.includes('child')) {
       return { intent: 'select_category_kids', confidence: 0.85 }
     }
-    if (text.includes('ethnic') || text.includes('traditional')) {
+    
+    // Ethnic: ethnic, traditional, cultural
+    if (text.includes('ethnic') || text.includes('ethnik') || text.includes('traditional') || text.includes('cultural')) {
       return { intent: 'select_category_ethnic', confidence: 0.85 }
     }
-    if (text.includes('casual')) {
+    
+    // Casual: casual, casuals, causal (common mishearing)
+    if (text.includes('casual') || text.includes('causal') || text.includes('casuals')) {
       return { intent: 'select_category_casuals', confidence: 0.85 }
     }
-    if (text.includes('formal')) {
+    
+    // Formal: formal, formals
+    if (text.includes('formal') || text.includes('formals')) {
       return { intent: 'select_category_formal', confidence: 0.85 }
     }
-    if (text.includes('sports') || text.includes('athletic')) {
+    
+    // Sports: sports, sport, athletic, gym, fitness
+    if (text.includes('sports') || text.includes('sport') || text.includes('athletic') || text.includes('gym') || text.includes('fitness')) {
       return { intent: 'select_category_sports', confidence: 0.85 }
     }
     
-    // Camera control intents
-    if (text.includes('start camera') || text.includes('activate camera') || text.includes('turn on camera')) {
+    // Camera control intents with fuzzy matching
+    // Start camera: start, open, turn on, activate, enable
+    if ((text.includes('start') || text.includes('open') || text.includes('turn on') || text.includes('activate') || text.includes('enable')) && 
+        (text.includes('camera') || text.includes('cam') || text.includes('video'))) {
       return { intent: 'camera_start', confidence: 0.9 }
     }
-    if (text.includes('stop camera') || text.includes('turn off camera') || text.includes('close camera')) {
+    
+    // Stop camera: stop, close, turn off, deactivate, disable
+    if ((text.includes('stop') || text.includes('close') || text.includes('turn off') || text.includes('deactivate') || text.includes('disable')) && 
+        (text.includes('camera') || text.includes('cam') || text.includes('video'))) {
       return { intent: 'camera_stop', confidence: 0.9 }
     }
-    if (text.includes('analyze') || text.includes('scan') || text.includes('detect')) {
+    
+    // Analyze: analyze, analyse, scan, detect, check
+    if (text.includes('analyze') || text.includes('analyse') || text.includes('scan') || text.includes('detect') || text.includes('check')) {
       return { intent: 'analyze_features', confidence: 0.85 }
     }
     
-    // General commands
-    if (text.includes('back') || text.includes('go back')) {
+    // General commands - check for back first before other navigation
+    // Back: back, go back, previous, return
+    if (text.includes('back') || text.includes('go back') || text.includes('previous') || text.includes('return')) {
       return { intent: 'navigate_back', confidence: 0.9 }
     }
-    if (text.includes('help') || text.includes('what can you do')) {
+    
+    // Help: help, what can you do, commands, assist
+    if (text.includes('help') || text.includes('what can you do') || text.includes('commands') || text.includes('assist')) {
       return { intent: 'show_help', confidence: 0.9 }
     }
     
+    console.log('⚠️ No matching intent found for:', text)
     return null
   }
 

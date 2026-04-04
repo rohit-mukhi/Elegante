@@ -26,42 +26,46 @@ export function VoiceNavigation({
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null)
 
   const handleVoiceCommand = useCallback(async (text: string) => {
-    console.log('Voice command received:', text)
+    console.log('🎯 Voice command received:', text)
     
     const result = await detectIntention(text)
     
     if (!result) {
-      console.log('No intention detected')
+      console.log('❌ No intention detected')
       return
     }
 
-    console.log('Detected intention:', result.intent, 'Confidence:', result.confidence)
+    console.log('✅ Detected intention:', result.intent, 'Confidence:', result.confidence)
 
     // Execute action based on detected intention
     switch (result.intent) {
       // Navigation intents
       case 'navigate_home':
-        navigate('/home')
+        console.log('📍 Navigating to /home')
+        navigate('/home', { replace: false })
         speak('Navigating to home page')
         break
       
       case 'navigate_mirror':
-        navigate('/mirror')
+        console.log('📍 Navigating to /mirror')
+        navigate('/mirror', { replace: false })
         speak('Opening virtual try-on mirror')
         break
       
       case 'navigate_stylist':
-        navigate('/stylist')
+        console.log('📍 Navigating to /stylist')
+        navigate('/stylist', { replace: false })
         speak('Opening AI stylist')
         break
       
       case 'navigate_profile':
-        navigate('/profile')
+        console.log('📍 Navigating to /profile')
+        navigate('/profile', { replace: false })
         speak('Opening profile')
         break
       
       case 'navigate_back':
-        console.log('Going back to previous page')
+        console.log('📍 Going back')
         navigate(-1)
         speak('Going back')
         break
@@ -176,11 +180,14 @@ export function VoiceNavigation({
       return
     }
     
-    console.log('🎤 New command:', transcript)
+    console.log('🎤 Command:', transcript)
     
     // Mark as processing immediately
     processingRef.current = true
     setLastProcessedTranscript(transcript)
+    
+    // Clear transcript immediately to prevent re-processing
+    clearTranscript()
     
     // Process the command
     handleVoiceCommand(transcript)
@@ -191,12 +198,11 @@ export function VoiceNavigation({
         console.error('❌ Error:', error)
       })
       .finally(() => {
-        // Clear and reset after delay
+        // Reset processing flag after short delay
         setTimeout(() => {
-          clearTranscript()
           processingRef.current = false
-          console.log('📤 Ready for next command')
-        }, 2000)
+          console.log('✅ Ready')
+        }, 1000) // Reduced to 1 second
       })
   }, [transcript, isEnabled, isProcessing, lastProcessedTranscript, handleVoiceCommand, clearTranscript, setLastProcessedTranscript])
 
