@@ -169,7 +169,6 @@ export default function Home() {
             <button
               onClick={() => {
                 setIsMenuOpen(false)
-                // Add signout logic here
                 navigate('/')
               }}
               className="w-full text-left px-4 py-3 text-white hover:text-yellow-400 transition rounded-lg hover:bg-purple-900/50"

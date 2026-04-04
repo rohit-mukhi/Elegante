@@ -162,13 +162,19 @@ export default function Stylist() {
             <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl border border-violet-900/70 bg-black/90 p-4 shadow-lg backdrop-blur-md">
               <p className="mb-3 text-sm text-violet-50/80">Welcome, Stylist</p>
               <button
-                onClick={() => navigate('/profile')}
+                onClick={() => {
+                  navigate('/profile')
+                  setMenuOpen(false)
+                }}
                 className="w-full mb-2 rounded-full border border-violet-500/70 bg-black/20 px-4 py-2 text-xs font-medium uppercase tracking-wide text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400"
               >
                 Profile
               </button>
               <button
-                onClick={() => navigate('/')}
+                onClick={() => {
+                  navigate('/')
+                  setMenuOpen(false)
+                }}
                 className="w-full rounded-full border border-violet-500/70 bg-black/20 px-4 py-2 text-xs font-medium uppercase tracking-wide text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400"
               >
                 Sign Out

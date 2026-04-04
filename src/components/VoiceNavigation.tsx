@@ -37,26 +37,26 @@ export function VoiceNavigation({
     const cmd = text.toLowerCase().trim()
     console.log('🎯 Processing:', cmd)
 
-    // Navigation
-    if (cmd.includes('home') || cmd.includes('homepage')) {
-      navigate('/home')
-      speak('Home')
-      return true
-    }
-    
-    if (cmd.includes('mirror') || cmd.includes('try on')) {
+    // Navigation - check most specific patterns first
+    if (cmd.includes('mirror') || cmd.includes('try on') || cmd.includes('virtual')) {
       navigate('/mirror')
       speak('Mirror')
       return true
     }
     
-    if (cmd.includes('stylist') || cmd.includes('style') || cmd.includes('color')) {
+    if (cmd.includes('stylist') || (cmd.includes('ai') && cmd.includes('style'))) {
       navigate('/stylist')
       speak('Stylist')
       return true
     }
     
-    if (cmd.includes('back')) {
+    if (cmd.includes('home') || cmd.includes('homepage') || cmd.includes('main page')) {
+      navigate('/home')
+      speak('Home')
+      return true
+    }
+    
+    if (cmd.includes('back') || cmd.includes('go back')) {
       navigate(-1)
       speak('Back')
       return true
@@ -126,7 +126,7 @@ export function VoiceNavigation({
 
     // Help
     if (cmd.includes('help')) {
-      speak('Say: go to mirror, show mens, start camera, or analyze')
+      speak('Say: go to mirror, go to stylist, go to home, start camera, or analyze')
       return true
     }
 
