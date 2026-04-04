@@ -25,8 +25,8 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
     if (SpeechRecognition) {
       setIsSupported(true)
       const recognition = new SpeechRecognition()
-      recognition.continuous = false  // Changed to false to avoid network issues
-      recognition.interimResults = true
+      recognition.continuous = true  // Keep listening continuously
+      recognition.interimResults = false  // Only process final results
       recognition.lang = 'en-US'
       recognition.maxAlternatives = 1
 
@@ -38,30 +38,12 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
       }
 
       recognition.onresult = (event: any) => {
-        console.log('Recognition result event:', event)
-        let interimTranscript = ''
-        let finalTranscript = ''
+        const last = event.results.length - 1
+        const transcript = event.results[last][0].transcript
         
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcript = event.results[i][0].transcript
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript + ' '
-            console.log('Final transcript:', transcript)
-          } else {
-            interimTranscript += transcript
-            console.log('Interim transcript:', transcript)
-          }
-        }
-        
-        // Show interim results in real-time
-        if (interimTranscript) {
-          setTranscript(interimTranscript)
-        }
-        
-        // Update with final transcript
-        if (finalTranscript) {
-          console.log('Setting final transcript:', finalTranscript.trim())
-          setTranscript(finalTranscript.trim())
+        if (event.results[last].isFinal) {
+          console.log('🎤 Final transcript:', transcript)
+          setTranscript(transcript.trim())
         }
       }
 
@@ -124,41 +106,26 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
       }
 
       recognition.onend = () => {
-        console.log('Recognition ended event fired, isListeningRef:', isListeningRef.current, 'isStartingRef:', isStartingRef.current)
+        console.log('🔊 Recognition ended, isListeningRef:', isListeningRef.current)
         
-        // Don't restart if we're already trying to start
-        if (isStartingRef.current) {
-          console.log('Already starting, skipping restart')
-          return
-        }
-        
-        if (isListeningRef.current) {
-          // Auto-restart if still enabled
-          console.log('Attempting to restart recognition...')
+        if (isListeningRef.current && !isStartingRef.current) {
+          // Auto-restart for continuous listening
           isStartingRef.current = true
           
           setTimeout(() => {
-            if (isListeningRef.current && recognitionRef.current && !isStartingRef.current) {
-              console.log('Timeout expired but already started, skipping')
-              return
-            }
-            
             if (isListeningRef.current && recognitionRef.current) {
               try {
                 recognitionRef.current.start()
-                console.log('Recognition restart initiated')
+                console.log('🔄 Recognition restarted')
               } catch (error: any) {
                 console.error('Failed to restart:', error.message)
                 isListeningRef.current = false
                 isStartingRef.current = false
                 setIsListening(false)
               }
-            } else {
-              isStartingRef.current = false
             }
-          }, 500) // Increased delay to 500ms to avoid rate limiting
+          }, 300)
         } else {
-          console.log('Not restarting - listening disabled')
           setIsListening(false)
         }
       }

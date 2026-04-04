@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMediaPipePose } from '../hooks/useMediaPipePose'
 import { VoiceNavigation } from '../components/VoiceNavigation'
+import { VoiceIndicator } from '../components/VoiceIndicator'
 import { useVoice } from '../contexts/VoiceContext'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
@@ -85,6 +86,9 @@ export default function Mirror() {
         onCameraStart={startCamera}
         onCameraStop={stopCamera}
       />
+      
+      {/* Voice Indicator */}
+      <VoiceIndicator />
       
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* Header */}

@@ -1,6 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useIntentionDetection } from '../hooks/useIntentionDetection'
 import { useVoice } from '../contexts/VoiceContext'
 
 interface VoiceNavigationProps {
@@ -20,193 +19,139 @@ export function VoiceNavigation({
 }: VoiceNavigationProps) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { detectIntention, isProcessing } = useIntentionDetection()
-  const { transcript, clearTranscript, lastProcessedTranscript, setLastProcessedTranscript } = useVoice()
-  const processingRef = useRef(false)
-  const speechRef = useRef<SpeechSynthesisUtterance | null>(null)
+  const { transcript, clearTranscript } = useVoice()
+  const lastProcessedRef = useRef('')
 
-  const handleVoiceCommand = useCallback(async (text: string) => {
-    console.log('🎯 Voice command received:', text)
-    
-    const result = await detectIntention(text)
-    
-    if (!result) {
-      console.log('❌ No intention detected')
-      return
-    }
-
-    console.log('✅ Detected intention:', result.intent, 'Confidence:', result.confidence)
-
-    // Execute action based on detected intention
-    switch (result.intent) {
-      // Navigation intents
-      case 'navigate_home':
-        console.log('📍 Navigating to /home')
-        navigate('/home', { replace: false })
-        speak('Navigating to home page')
-        break
-      
-      case 'navigate_mirror':
-        console.log('📍 Navigating to /mirror')
-        navigate('/mirror', { replace: false })
-        speak('Opening virtual try-on mirror')
-        break
-      
-      case 'navigate_stylist':
-        console.log('📍 Navigating to /stylist')
-        navigate('/stylist', { replace: false })
-        speak('Opening AI stylist')
-        break
-      
-      case 'navigate_profile':
-        console.log('📍 Navigating to /profile')
-        navigate('/profile', { replace: false })
-        speak('Opening profile')
-        break
-      
-      case 'navigate_back':
-        console.log('📍 Going back')
-        navigate(-1)
-        speak('Going back')
-        break
-      
-      // Category selection (only on home page)
-      case 'select_category_mens':
-        if (location.pathname === '/home' && onCategoryChange) {
-          onCategoryChange('mens')
-          speak('Showing mens collection')
-        }
-        break
-      
-      case 'select_category_womens':
-        if (location.pathname === '/home' && onCategoryChange) {
-          onCategoryChange('womens')
-          speak('Showing womens collection')
-        }
-        break
-      
-      case 'select_category_kids':
-        if (location.pathname === '/home' && onCategoryChange) {
-          onCategoryChange('kids')
-          speak('Showing kids collection')
-        }
-        break
-      
-      case 'select_category_ethnic':
-        if (location.pathname === '/home' && onCategoryChange) {
-          onCategoryChange('ethnic')
-          speak('Showing ethnic collection')
-        }
-        break
-      
-      case 'select_category_casuals':
-        if (location.pathname === '/home' && onCategoryChange) {
-          onCategoryChange('casuals')
-          speak('Showing casuals collection')
-        }
-        break
-      
-      case 'select_category_formal':
-        if (location.pathname === '/home' && onCategoryChange) {
-          onCategoryChange('formal')
-          speak('Showing formal collection')
-        }
-        break
-      
-      case 'select_category_sports':
-        if (location.pathname === '/home' && onCategoryChange) {
-          onCategoryChange('sports')
-          speak('Showing sports collection')
-        }
-        break
-      
-      // Camera controls (mirror and stylist pages)
-      case 'camera_start':
-        if ((location.pathname === '/mirror' || location.pathname === '/stylist') && onCameraStart) {
-          onCameraStart()
-          speak('Starting camera')
-        }
-        break
-      
-      case 'camera_stop':
-        if ((location.pathname === '/mirror' || location.pathname === '/stylist') && onCameraStop) {
-          onCameraStop()
-          speak('Stopping camera')
-        }
-        break
-      
-      case 'analyze_features':
-        if (location.pathname === '/stylist' && onAnalyze) {
-          onAnalyze()
-          speak('Analyzing your features')
-        }
-        break
-      
-      case 'show_help':
-        speak('You can say commands like: go to mirror, show mens collection, start camera, analyze features, or go back')
-        break
-      
-      default:
-        console.log('Unknown intention:', result.intent)
-    }
-  }, [navigate, location, onCategoryChange, onCameraStart, onCameraStop, onAnalyze, detectIntention])
-
-  // Text-to-speech feedback (only speak once)
   const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
-      // Cancel any ongoing speech
       window.speechSynthesis.cancel()
-      
       const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = 1.0
+      utterance.rate = 1.1
       utterance.pitch = 1.0
-      utterance.volume = 0.8
-      speechRef.current = utterance
+      utterance.volume = 0.7
       window.speechSynthesis.speak(utterance)
     }
   }, [])
 
-  // Process transcript when it changes
-  useEffect(() => {
-    if (!isEnabled || !transcript || isProcessing || processingRef.current) return
-    
-    // Skip if already processed
-    if (transcript === lastProcessedTranscript) {
-      return
-    }
-    
-    // Skip empty or very short transcripts
-    if (transcript.trim().length < 3) {
-      return
-    }
-    
-    console.log('🎤 Command:', transcript)
-    
-    // Mark as processing immediately
-    processingRef.current = true
-    setLastProcessedTranscript(transcript)
-    
-    // Clear transcript immediately to prevent re-processing
-    clearTranscript()
-    
-    // Process the command
-    handleVoiceCommand(transcript)
-      .then(() => {
-        console.log('✅ Done')
-      })
-      .catch((error) => {
-        console.error('❌ Error:', error)
-      })
-      .finally(() => {
-        // Reset processing flag after short delay
-        setTimeout(() => {
-          processingRef.current = false
-          console.log('✅ Ready')
-        }, 1000) // Reduced to 1 second
-      })
-  }, [transcript, isEnabled, isProcessing, lastProcessedTranscript, handleVoiceCommand, clearTranscript, setLastProcessedTranscript])
+  const processCommand = useCallback((text: string) => {
+    const cmd = text.toLowerCase().trim()
+    console.log('🎯 Processing:', cmd)
 
-  // Cleanup speech on unmount
+    // Navigation
+    if (cmd.includes('home') || cmd.includes('homepage')) {
+      navigate('/home')
+      speak('Home')
+      return true
+    }
+    
+    if (cmd.includes('mirror') || cmd.includes('try on')) {
+      navigate('/mirror')
+      speak('Mirror')
+      return true
+    }
+    
+    if (cmd.includes('stylist') || cmd.includes('style') || cmd.includes('color')) {
+      navigate('/stylist')
+      speak('Stylist')
+      return true
+    }
+    
+    if (cmd.includes('back')) {
+      navigate(-1)
+      speak('Back')
+      return true
+    }
+
+    // Categories (only on home page)
+    if (location.pathname === '/home' && onCategoryChange) {
+      if (cmd.includes('men') && !cmd.includes('women')) {
+        onCategoryChange('mens')
+        speak('Mens')
+        return true
+      }
+      if (cmd.includes('women') || cmd.includes('ladies')) {
+        onCategoryChange('womens')
+        speak('Womens')
+        return true
+      }
+      if (cmd.includes('kid') || cmd.includes('children')) {
+        onCategoryChange('kids')
+        speak('Kids')
+        return true
+      }
+      if (cmd.includes('ethnic') || cmd.includes('traditional')) {
+        onCategoryChange('ethnic')
+        speak('Ethnic')
+        return true
+      }
+      if (cmd.includes('casual')) {
+        onCategoryChange('casuals')
+        speak('Casuals')
+        return true
+      }
+      if (cmd.includes('formal')) {
+        onCategoryChange('formal')
+        speak('Formal')
+        return true
+      }
+      if (cmd.includes('sport')) {
+        onCategoryChange('sports')
+        speak('Sports')
+        return true
+      }
+    }
+
+    // Camera controls
+    if ((location.pathname === '/mirror' || location.pathname === '/stylist')) {
+      if ((cmd.includes('start') || cmd.includes('open') || cmd.includes('turn on')) && cmd.includes('camera')) {
+        onCameraStart?.()
+        speak('Starting camera')
+        return true
+      }
+      if ((cmd.includes('stop') || cmd.includes('close')) && cmd.includes('camera')) {
+        onCameraStop?.()
+        speak('Stopping camera')
+        return true
+      }
+    }
+
+    // Analyze (stylist page only)
+    if (location.pathname === '/stylist') {
+      if (cmd.includes('analyze') || cmd.includes('scan') || cmd.includes('detect')) {
+        onAnalyze?.()
+        speak('Analyzing')
+        return true
+      }
+    }
+
+    // Help
+    if (cmd.includes('help')) {
+      speak('Say: go to mirror, show mens, start camera, or analyze')
+      return true
+    }
+
+    return false
+  }, [navigate, location, onCategoryChange, onCameraStart, onCameraStop, onAnalyze, speak])
+
+  useEffect(() => {
+    if (!isEnabled || !transcript || transcript.length < 3) return
+    
+    // Prevent duplicate processing
+    if (transcript === lastProcessedRef.current) return
+    
+    lastProcessedRef.current = transcript
+    const processed = processCommand(transcript)
+    
+    if (processed) {
+      console.log('✅ Command executed')
+    } else {
+      console.log('❌ Command not recognized')
+    }
+    
+    // Clear after processing
+    setTimeout(() => clearTranscript(), 500)
+  }, [transcript, isEnabled, processCommand, clearTranscript])
+
   useEffect(() => {
     return () => {
       if (window.speechSynthesis) {
@@ -215,5 +160,5 @@ export function VoiceNavigation({
     }
   }, [])
 
-  return null // This component doesn't render anything, it just handles voice logic
+  return null
 }

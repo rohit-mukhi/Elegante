@@ -1,70 +1,38 @@
-interface VoiceIndicatorProps {
-  isListening: boolean
-  isProcessing: boolean
-}
+import { useVoice } from '../contexts/VoiceContext'
 
-export function VoiceIndicator({ isListening, isProcessing }: VoiceIndicatorProps) {
-  if (!isListening && !isProcessing) {
-    return null
-  }
+export function VoiceIndicator() {
+  const { isVoiceEnabled, isListening, transcript } = useVoice()
+
+  if (!isVoiceEnabled) return null
 
   return (
-    <div className="fixed bottom-8 right-8 z-50">
-      <div className="relative">
-        {/* Pulsing animation */}
-        {isListening && (
-          <div className="absolute inset-0 rounded-full bg-yellow-400 animate-ping opacity-75"></div>
-        )}
-        
-        {/* Main indicator */}
-        <div className={`relative flex items-center gap-3 px-6 py-4 rounded-full backdrop-blur-md border-2 shadow-2xl transition-all ${
-          isListening 
-            ? 'bg-yellow-400/90 border-yellow-500 shadow-yellow-400/50' 
-            : 'bg-purple-900/90 border-purple-500 shadow-purple-500/50'
-        }`}>
-          {/* Microphone icon */}
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+      <div className="bg-black/90 backdrop-blur-md border border-yellow-400/50 rounded-full px-6 py-3 shadow-2xl">
+        <div className="flex items-center gap-3">
+          {/* Listening indicator */}
           <div className="relative">
-            {isListening && (
+            {isListening ? (
               <>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-8 h-8 bg-purple-950 rounded-full animate-pulse"></div>
-                </div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-6 h-6 bg-purple-950 rounded-full animate-pulse animation-delay-150"></div>
-                </div>
+                <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                <div className="absolute inset-0 w-3 h-3 bg-red-500 rounded-full animate-ping" />
               </>
+            ) : (
+              <div className="w-3 h-3 bg-gray-500 rounded-full" />
             )}
-            <span className="relative text-3xl">
-              {isListening ? '🎤' : '⏳'}
-            </span>
           </div>
-          
+
           {/* Status text */}
-          <div className="flex flex-col">
-            <span className={`font-bold text-sm ${isListening ? 'text-purple-950' : 'text-yellow-400'}`}>
-              {isListening ? 'Listening...' : 'Processing...'}
-            </span>
-            <span className={`text-xs ${isListening ? 'text-purple-900' : 'text-purple-300'}`}>
-              {isListening ? 'Speak your command' : 'Analyzing intent'}
-            </span>
+          <div className="text-sm">
+            {transcript ? (
+              <span className="text-yellow-400 font-medium">"{transcript}"</span>
+            ) : isListening ? (
+              <span className="text-white">Listening...</span>
+            ) : (
+              <span className="text-gray-400">Voice Ready</span>
+            )}
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes ping {
-          75%, 100% {
-            transform: scale(1.5);
-            opacity: 0;
-          }
-        }
-        .animate-ping {
-          animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
-        }
-        .animation-delay-150 {
-          animation-delay: 150ms;
-        }
-      `}</style>
     </div>
   )
 }

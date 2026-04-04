@@ -4,6 +4,7 @@ import AOS from 'aos'
 import 'aos/dist/aos.css'
 import Hamburger from 'hamburger-react'
 import { VoiceNavigation } from '../components/VoiceNavigation'
+import { VoiceIndicator } from '../components/VoiceIndicator'
 import { useVoice } from '../contexts/VoiceContext'
 
 const deals = [
@@ -121,6 +122,9 @@ export default function Home() {
         isEnabled={isVoiceEnabled}
         onCategoryChange={setSelectedCategory}
       />
+      
+      {/* Voice Indicator */}
+      <VoiceIndicator />
       
       {/* Navigation */}
       <nav ref={menuRef} className="fixed top-0 w-full z-50 backdrop-blur-md bg-purple-950/85 border-b border-yellow-500/25">
