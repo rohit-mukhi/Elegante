@@ -12,7 +12,7 @@ export interface AppearanceFeatures {
   skinToneITA: number
 }
 
-export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElement>) {
+export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElement | null>) {
   const [isLoading, setIsLoading] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [features, setFeatures] = useState<AppearanceFeatures | null>(null)

@@ -11,7 +11,7 @@ export interface BodyMeasurements {
   rightLegLength: number
 }
 
-export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement>) {
+export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement | null>) {
   const [isLoading, setIsLoading] = useState(false)
   const [measurements, setMeasurements] = useState<BodyMeasurements | null>(null)
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null)

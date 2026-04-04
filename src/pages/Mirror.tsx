@@ -1,6 +1,9 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMediaPipePose } from '../hooks/useMediaPipePose'
+import { VoiceNavigation } from '../components/VoiceNavigation'
+import { VoiceIndicator } from '../components/VoiceIndicator'
+import { useVoiceRecognition } from '../hooks/useVoiceRecognition'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
@@ -8,11 +11,13 @@ export default function Mirror() {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [cameraActive, setCameraActive] = useState(false)
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [selectedOutfit, setSelectedOutfit] = useState<string | null>(null)
   const { isLoading: poseLoading, measurements, startDetection, stopDetection, dispose: disposePose } = useMediaPipePose(videoRef)
+  const { isListening, isSupported, transcript, startListening, stopListening } = useVoiceRecognition()
 
   const outfits = [
     { name: 'Classic Shirt', icon: '👔', color: 'Blue' },
@@ -76,6 +81,21 @@ export default function Mirror() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-950 via-violet-950 to-purple-900 text-zinc-50">
+      {/* Voice Navigation */}
+      <VoiceNavigation 
+        isEnabled={isVoiceEnabled}
+        transcript={transcript}
+        isSupported={isSupported}
+        startListening={startListening}
+        stopListening={stopListening}
+        onCameraStart={startCamera}
+        onCameraStop={stopCamera}
+        onTranscriptProcessed={() => {}}
+      />
+      
+      {/* Voice Indicator */}
+      {isVoiceEnabled && <VoiceIndicator isListening={isListening} isProcessing={poseLoading} />}
+      
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* Header */}
         <header className="relative flex items-center justify-between border-b border-violet-900/50 pb-6">
@@ -83,12 +103,32 @@ export default function Mirror() {
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-yellow-400 via-gray-300 to-purple-600" />
             <span className="text-sm font-medium tracking-[0.3em] text-violet-50">ELEGANTE</span>
           </button>
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-violet-500/70 bg-black/20 text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400"
-          >
-            <span className="text-lg">{menuOpen ? '✕' : '☰'}</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                if (!isSupported) {
+                  alert('Voice recognition is not supported in your browser. Please use Chrome, Edge, or Safari.')
+                  return
+                }
+                setIsVoiceEnabled(!isVoiceEnabled)
+              }}
+              disabled={!isSupported}
+              className={`flex h-8 w-8 items-center justify-center rounded-full border transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                isVoiceEnabled
+                  ? 'border-yellow-400 bg-yellow-400/20 text-yellow-400'
+                  : 'border-violet-500/70 bg-black/20 text-violet-50 hover:border-yellow-400 hover:text-yellow-400'
+              }`}
+              title={!isSupported ? 'Voice recognition not supported' : isVoiceEnabled ? 'Disable voice control' : 'Enable voice control'}
+            >
+              <span className="text-lg">{isVoiceEnabled ? '🎤' : '🔇'}</span>
+            </button>
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-violet-500/70 bg-black/20 text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400"
+            >
+              <span className="text-lg">{menuOpen ? '✕' : '☰'}</span>
+            </button>
+          </div>
           {menuOpen && (
             <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-2xl border border-violet-900/70 bg-black/90 p-4 shadow-lg backdrop-blur-md">
               <p className="mb-3 text-sm text-violet-50/80">Welcome, Stylist</p>

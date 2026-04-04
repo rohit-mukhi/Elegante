@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 import Hamburger from 'hamburger-react'
+import { VoiceNavigation } from '../components/VoiceNavigation'
+import { VoiceIndicator } from '../components/VoiceIndicator'
+import { VoiceDebug } from '../components/VoiceDebug'
+import { useVoiceRecognition } from '../hooks/useVoiceRecognition'
 
 const deals = [
   { id: 1, title: 'Summer Sale - Up to 50% Off', image: '🌞', bg: 'from-yellow-400 to-orange-500' },
@@ -78,7 +82,9 @@ export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [selectedCategory, setSelectedCategory] = useState('mens')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { isListening, isSupported, transcript, startListening, stopListening } = useVoiceRecognition()
 
   useEffect(() => {
     AOS.init({ 
@@ -113,13 +119,53 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-violet-900 to-purple-900">
+      {/* Voice Navigation */}
+      <VoiceNavigation 
+        isEnabled={isVoiceEnabled}
+        transcript={transcript}
+        isSupported={isSupported}
+        startListening={startListening}
+        stopListening={stopListening}
+        onCategoryChange={setSelectedCategory}
+        onTranscriptProcessed={() => {}}
+      />
+      
+      {/* Voice Indicator */}
+      {isVoiceEnabled && <VoiceIndicator isListening={isListening} isProcessing={false} />}
+      
+      {/* Debug Panel */}
+      {isVoiceEnabled && <VoiceDebug isListening={isListening} transcript={transcript} isSupported={isSupported} />}
+      
+      {/* Debug Panel - Remove this after testing */}
+      {isVoiceEnabled && <VoiceDebug isListening={isListening} transcript={transcript} isSupported={isSupported} />}
       {/* Navigation */}
       <nav ref={menuRef} className="fixed top-0 w-full z-50 backdrop-blur-md bg-purple-950/85 border-b border-yellow-500/25">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <div className="text-3xl font-bold text-white cursor-pointer" onClick={() => navigate('/')}>
             Elegante
           </div>
-          <Hamburger toggled={isMenuOpen} toggle={setIsMenuOpen} color="#facc15" size={24} />
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => {
+                if (!isSupported) {
+                  alert('Voice recognition is not supported in your browser. Please use Chrome, Edge, or Safari.')
+                  return
+                }
+                setIsVoiceEnabled(!isVoiceEnabled)
+              }}
+              disabled={!isSupported}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                isVoiceEnabled
+                  ? 'bg-gradient-to-r from-yellow-400 to-gray-300 text-purple-950'
+                  : 'bg-purple-800/50 text-white hover:bg-purple-700/50'
+              }`}
+              title={!isSupported ? 'Voice recognition not supported' : isVoiceEnabled ? 'Disable voice control' : 'Enable voice control'}
+            >
+              <span className="text-lg">{isVoiceEnabled ? '🎤' : '🔇'}</span>
+              <span className="hidden sm:inline">{isVoiceEnabled ? 'Voice On' : 'Voice Off'}</span>
+            </button>
+            <Hamburger toggled={isMenuOpen} toggle={setIsMenuOpen} color="#facc15" size={24} />
+          </div>
         </div>
         {isMenuOpen && (
           <div className="bg-purple-950/90 backdrop-blur-md border-t border-yellow-500/25 p-4">
