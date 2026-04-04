@@ -19,7 +19,7 @@ export default function Stylist() {
   const { isLoading, isAnalyzing, features, analyzeFeatures, dispose: disposeAppearance } = useAppearanceDetection(videoRef)
   const { getRecommendations } = useColorRecommendation()
   const [colorRecommendations, setColorRecommendations] = useState<string[] | null>(null)
-  const { isListening, isSupported, transcript, startListening, stopListening } = useVoiceRecognition()
+  const { isListening, isSupported, transcript, startListening, stopListening, clearTranscript } = useVoiceRecognition()
 
   const startCamera = async () => {
     try {
@@ -122,10 +122,10 @@ export default function Stylist() {
         isSupported={isSupported}
         startListening={startListening}
         stopListening={stopListening}
+        clearTranscript={clearTranscript}
         onCameraStart={startCamera}
         onCameraStop={stopCamera}
         onAnalyze={analyzeFeatures}
-        onTranscriptProcessed={() => {}}
       />
       
       {/* Voice Indicator */}

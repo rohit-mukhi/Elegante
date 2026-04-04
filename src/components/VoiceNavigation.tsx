@@ -8,11 +8,11 @@ interface VoiceNavigationProps {
   isSupported: boolean
   startListening: () => void
   stopListening: () => void
+  clearTranscript: () => void
   onCategoryChange?: (category: string) => void
   onCameraStart?: () => void
   onCameraStop?: () => void
   onAnalyze?: () => void
-  onTranscriptProcessed?: () => void
 }
 
 export function VoiceNavigation({ 
@@ -21,11 +21,11 @@ export function VoiceNavigation({
   isSupported,
   startListening,
   stopListening,
+  clearTranscript,
   onCategoryChange,
   onCameraStart,
   onCameraStop,
-  onAnalyze,
-  onTranscriptProcessed
+  onAnalyze
 }: VoiceNavigationProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -179,12 +179,15 @@ export function VoiceNavigation({
       console.log('Processing transcript:', transcript)
       lastProcessedRef.current = transcript
       handleVoiceCommand(transcript).then(() => {
-        if (onTranscriptProcessed) {
-          onTranscriptProcessed()
-        }
+        // Clear transcript immediately after processing to free memory
+        console.log('Command executed, clearing transcript for next input')
+        setTimeout(() => {
+          clearTranscript()
+          lastProcessedRef.current = '' // Reset for next command
+        }, 100) // Small delay to ensure command completes
       })
     }
-  }, [transcript, isProcessing, handleVoiceCommand, isEnabled, onTranscriptProcessed])
+  }, [transcript, isProcessing, handleVoiceCommand, isEnabled, clearTranscript])
 
   return null // This component doesn't render anything, it just handles voice logic
 }

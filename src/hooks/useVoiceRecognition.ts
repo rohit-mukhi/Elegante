@@ -6,7 +6,7 @@ interface VoiceRecognitionHook {
   startListening: () => void
   stopListening: () => void
   isSupported: boolean
-  setManualTranscript: (text: string) => void
+  clearTranscript: () => void
 }
 
 export function useVoiceRecognition(): VoiceRecognitionHook {
@@ -223,8 +223,9 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
     }
   }, [])
 
-  const setManualTranscript = useCallback((text: string) => {
-    setTranscript(text)
+  const clearTranscript = useCallback(() => {
+    console.log('Clearing transcript for next command')
+    setTranscript('')
   }, [])
 
   return {
@@ -233,6 +234,6 @@ export function useVoiceRecognition(): VoiceRecognitionHook {
     startListening,
     stopListening,
     isSupported,
-    setManualTranscript
+    clearTranscript
   }
 }

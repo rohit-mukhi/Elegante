@@ -84,7 +84,7 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  const { isListening, isSupported, transcript, startListening, stopListening } = useVoiceRecognition()
+  const { isListening, isSupported, transcript, startListening, stopListening, clearTranscript } = useVoiceRecognition()
 
   useEffect(() => {
     AOS.init({ 
@@ -126,8 +126,8 @@ export default function Home() {
         isSupported={isSupported}
         startListening={startListening}
         stopListening={stopListening}
+        clearTranscript={clearTranscript}
         onCategoryChange={setSelectedCategory}
-        onTranscriptProcessed={() => {}}
       />
       
       {/* Voice Indicator */}
