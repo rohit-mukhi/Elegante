@@ -265,7 +265,7 @@ export default function Home() {
               <div className="text-7xl mb-6">✨</div>
               <h3 className="text-3xl font-bold text-white mb-4">AI Stylist</h3>
               <p className="text-gray-200 text-lg mb-6 leading-relaxed">
-                Get personalized fashion recommendations based on your skin tone, body type, and style preferences. Our AI analyzes your features using 12-season color theory.
+                Get personalized fashion recommendations based on your skin tone, body type, and style preferences. Our AI analyzes your features and recommends colors that complement you perfectly.
               </p>
               <div className="flex items-center text-yellow-400 font-semibold group-hover:translate-x-2 transition">
                 Get Styled <span className="ml-2">→</span>

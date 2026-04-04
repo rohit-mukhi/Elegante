@@ -64,7 +64,7 @@ export default function Landing() {
                 Your Personal <span className="bg-gradient-to-r from-yellow-400 via-gray-300 to-yellow-400 bg-clip-text text-transparent">AI Stylist</span>
               </h1>
               <p className="text-xl text-gray-200 mb-8 leading-relaxed">
-                Discover your perfect colors using advanced AI and color theory. See how clothes look on you before you buy—no returns, no regrets.
+                Discover your perfect color palette using advanced AI. See how clothes look on you before you buy—no returns, no regrets.
               </p>
               <div className="flex gap-4">
                 <button
@@ -104,7 +104,7 @@ export default function Landing() {
               {
                 icon: '🎨',
                 title: 'Color Science',
-                desc: 'AI analyzes your skin tone and recommends colors from the 12-season color theory'
+                desc: 'AI analyzes your features and recommends personalized color palettes that complement you'
               },
               {
                 icon: '👁️',
@@ -157,7 +157,7 @@ export default function Landing() {
             {[
               { step: '1', title: 'Activate Mirror Mode', desc: 'Position yourself in front of your camera for a full-body view' },
               { step: '2', title: 'AI Analysis', desc: 'Our AI analyzes your skin tone, eye color, and features in real-time' },
-              { step: '3', title: 'Get Your Season', desc: 'Discover your color season and receive personalized recommendations' },
+              { step: '3', title: 'Get Your Colors', desc: 'Discover your personalized color palette and receive style recommendations' },
               { step: '4', title: 'Virtual Try-On', desc: 'Browse and try on clothes virtually to see what suits you best' },
               { step: '5', title: 'Shop with Confidence', desc: 'Make purchases knowing exactly how items will look on you' }
             ].map((item, i) => (

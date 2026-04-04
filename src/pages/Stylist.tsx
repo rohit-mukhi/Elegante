@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppearanceDetection } from '../hooks/useAppearanceDetection'
+import { useColorRecommendation } from '../hooks/useColorRecommendation'
+import { getColorRgba } from '../utils/colorPalette'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
@@ -11,6 +13,8 @@ export default function Stylist() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const { isLoading, isAnalyzing, features, analyzeFeatures } = useAppearanceDetection(videoRef)
+  const { isModelLoading, isRecommending, getRecommendations } = useColorRecommendation()
+  const [colorRecommendations, setColorRecommendations] = useState<string[] | null>(null)
 
   const startCamera = async () => {
     try {
@@ -53,6 +57,45 @@ export default function Stylist() {
       stopCamera()
     }
   }, [])
+
+  const handleGetRecommendations = async () => {
+    if (!features) {
+      console.log('No features available')
+      return
+    }
+
+    console.log('Features detected:', features)
+
+    // Determine torso length based on measurements
+    const torsoLength = 'Balanced' // Default, could be calculated from pose data
+
+    console.log('Calling getRecommendations with:', {
+      hairColor: features.hairColor,
+      eyeColor: features.eyeColor,
+      skinTone: features.skinTone,
+      underTone: features.underTone,
+      torsoLength,
+      bodyType: features.bodyType
+    })
+
+    const recommendations = await getRecommendations(
+      features.hairColor,
+      features.eyeColor,
+      features.skinTone,
+      features.underTone,
+      torsoLength,
+      features.bodyType
+    )
+
+    console.log('Recommendations received:', recommendations)
+
+    if (recommendations) {
+      setColorRecommendations(recommendations.topColors)
+      console.log('Top colors set:', recommendations.topColors)
+    } else {
+      console.log('No recommendations returned')
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-950 via-violet-950 to-purple-900 text-zinc-50">
@@ -186,8 +229,15 @@ export default function Stylist() {
             <div data-aos="fade-up" data-aos-delay="200" className="rounded-2xl border border-violet-900/50 bg-black/35 p-6 backdrop-blur-md">
               <h3 className="mb-3 text-lg font-semibold text-violet-50">Style Tips</h3>
               <p className="text-sm text-violet-50/70 mb-4">Get personalized recommendations based on your features</p>
-              <button className="w-full rounded-full border border-violet-500/70 bg-black/20 px-4 py-2 text-sm font-medium text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400">
-                💡 Get Recommendations
+              {isModelLoading && (
+                <p className="text-xs text-violet-50/50 mb-4">Loading recommendation model...</p>
+              )}
+              <button
+                onClick={handleGetRecommendations}
+                disabled={!features || isModelLoading || isRecommending}
+                className="w-full rounded-full border border-violet-500/70 bg-black/20 px-4 py-2 text-sm font-medium text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isRecommending ? '⏳ Analyzing...' : '💡 Get Recommendations'}
               </button>
             </div>
 
@@ -195,9 +245,25 @@ export default function Stylist() {
             <div data-aos="fade-up" data-aos-delay="300" className="rounded-2xl border border-violet-900/50 bg-black/35 p-6 backdrop-blur-md">
               <h3 className="mb-3 text-lg font-semibold text-violet-50">Your Color Palette</h3>
               <p className="text-sm text-violet-50/70 mb-4">Colors that complement your features</p>
-              <button className="w-full rounded-full border border-violet-500/70 bg-black/20 px-4 py-2 text-sm font-medium text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400">
-                🎨 View Palette
-              </button>
+              {!colorRecommendations && (
+                <p className="text-xs text-violet-50/50 mb-4">Analyze your features first to see recommendations</p>
+              )}
+              {colorRecommendations && colorRecommendations.length > 0 && (
+                <div className="space-y-3 mb-4">
+                  {colorRecommendations.map((color, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 rounded-lg bg-black/30 p-3"
+                    >
+                      <div 
+                        className="h-10 w-10 rounded-lg border border-violet-500/50 flex-shrink-0"
+                        style={{ backgroundColor: getColorRgba(color) }}
+                      />
+                      <span className="text-sm font-medium text-yellow-400">{color}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
