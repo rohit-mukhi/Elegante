@@ -83,7 +83,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('mens')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  const { isVoiceEnabled, setIsVoiceEnabled, isListening, isSupported, transcript, startListening, stopListening, clearTranscript } = useVoice()
+  const { isVoiceEnabled, setIsVoiceEnabled, isListening, isSupported, transcript } = useVoice()
 
   useEffect(() => {
     AOS.init({ 
@@ -121,11 +121,6 @@ export default function Home() {
       {/* Voice Navigation */}
       <VoiceNavigation 
         isEnabled={isVoiceEnabled}
-        transcript={transcript}
-        isSupported={isSupported}
-        startListening={startListening}
-        stopListening={stopListening}
-        clearTranscript={clearTranscript}
         onCategoryChange={setSelectedCategory}
       />
       

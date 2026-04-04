@@ -1,14 +1,10 @@
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useIntentionDetection } from '../hooks/useIntentionDetection'
+import { useVoice } from '../contexts/VoiceContext'
 
 interface VoiceNavigationProps {
   isEnabled: boolean
-  transcript: string
-  isSupported: boolean
-  startListening: () => void
-  stopListening: () => void
-  clearTranscript: () => void
   onCategoryChange?: (category: string) => void
   onCameraStart?: () => void
   onCameraStop?: () => void
@@ -17,11 +13,6 @@ interface VoiceNavigationProps {
 
 export function VoiceNavigation({ 
   isEnabled,
-  transcript,
-  isSupported,
-  startListening,
-  stopListening,
-  clearTranscript,
   onCategoryChange,
   onCameraStart,
   onCameraStop,
@@ -30,7 +21,7 @@ export function VoiceNavigation({
   const navigate = useNavigate()
   const location = useLocation()
   const { detectIntention, isProcessing } = useIntentionDetection()
-  const lastProcessedRef = useRef('')
+  const { transcript, isSupported, startListening, stopListening, clearTranscript, lastProcessedTranscript, setLastProcessedTranscript } = useVoice()
 
   const handleVoiceCommand = useCallback(async (text: string) => {
     console.log('Voice command received:', text)
@@ -175,19 +166,18 @@ export function VoiceNavigation({
 
   // Process transcript when it changes
   useEffect(() => {
-    if (isEnabled && transcript && !isProcessing && transcript !== lastProcessedRef.current) {
-      console.log('Processing transcript:', transcript)
-      lastProcessedRef.current = transcript
+    if (isEnabled && transcript && !isProcessing && transcript !== lastProcessedTranscript) {
+      console.log('Processing transcript:', transcript, 'Last processed:', lastProcessedTranscript)
+      setLastProcessedTranscript(transcript)
       handleVoiceCommand(transcript).then(() => {
-        // Clear transcript immediately after processing to free memory
-        console.log('Command executed, clearing transcript for next input')
+        // Clear transcript immediately after processing
+        console.log('Command executed, clearing transcript')
         setTimeout(() => {
           clearTranscript()
-          lastProcessedRef.current = '' // Reset for next command
-        }, 100) // Small delay to ensure command completes
+        }, 100)
       })
     }
-  }, [transcript, isProcessing, handleVoiceCommand, isEnabled, clearTranscript])
+  }, [transcript, isProcessing, handleVoiceCommand, isEnabled, clearTranscript, lastProcessedTranscript, setLastProcessedTranscript])
 
   return null // This component doesn't render anything, it just handles voice logic
 }

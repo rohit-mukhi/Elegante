@@ -16,7 +16,7 @@ export default function Mirror() {
   const streamRef = useRef<MediaStream | null>(null)
   const [selectedOutfit, setSelectedOutfit] = useState<string | null>(null)
   const { isLoading: poseLoading, measurements, startDetection, stopDetection, dispose: disposePose } = useMediaPipePose(videoRef)
-  const { isVoiceEnabled, setIsVoiceEnabled, isListening, isSupported, transcript, startListening, stopListening, clearTranscript } = useVoice()
+  const { isVoiceEnabled, setIsVoiceEnabled, isListening, isSupported } = useVoice()
 
   const outfits = [
     { name: 'Classic Shirt', icon: '👔', color: 'Blue' },
@@ -83,11 +83,6 @@ export default function Mirror() {
       {/* Voice Navigation */}
       <VoiceNavigation 
         isEnabled={isVoiceEnabled}
-        transcript={transcript}
-        isSupported={isSupported}
-        startListening={startListening}
-        stopListening={stopListening}
-        clearTranscript={clearTranscript}
         onCameraStart={startCamera}
         onCameraStop={stopCamera}
       />
