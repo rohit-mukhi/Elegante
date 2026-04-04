@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppearanceDetection } from '../hooks/useAppearanceDetection'
 import { useColorRecommendation } from '../hooks/useColorRecommendation'
-import { getColorRgba } from '../utils/colorPalette'
+import { getColorRgba, expandColors } from '../utils/colorPalette'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
@@ -58,6 +58,13 @@ export default function Stylist() {
     }
   }, [])
 
+  useEffect(() => {
+    // Automatically get color recommendations when features are analyzed
+    if (features && !isAnalyzing) {
+      handleGetRecommendations()
+    }
+  }, [features, isAnalyzing])
+
   const handleGetRecommendations = async () => {
     if (!features) {
       console.log('No features available')
@@ -90,8 +97,10 @@ export default function Stylist() {
     console.log('Recommendations received:', recommendations)
 
     if (recommendations) {
-      setColorRecommendations(recommendations.topColors)
-      console.log('Top colors set:', recommendations.topColors)
+      // Expand base colors into specific shades with randomization
+      const expandedColors = expandColors(recommendations.topColors, 6)
+      setColorRecommendations(expandedColors)
+      console.log('Expanded colors set:', expandedColors)
     } else {
       console.log('No recommendations returned')
     }
@@ -227,18 +236,19 @@ export default function Stylist() {
 
             {/* Style Recommendations */}
             <div data-aos="fade-up" data-aos-delay="200" className="rounded-2xl border border-violet-900/50 bg-black/35 p-6 backdrop-blur-md">
-              <h3 className="mb-3 text-lg font-semibold text-violet-50">Style Tips</h3>
-              <p className="text-sm text-violet-50/70 mb-4">Get personalized recommendations based on your features</p>
-              {isModelLoading && (
-                <p className="text-xs text-violet-50/50 mb-4">Loading recommendation model...</p>
+              <h3 className="mb-3 text-lg font-semibold text-violet-50">Color Analysis Status</h3>
+              {!features && (
+                <p className="text-sm text-violet-50/70">Analyze your features to get color recommendations</p>
               )}
-              <button
-                onClick={handleGetRecommendations}
-                disabled={!features || isModelLoading || isRecommending}
-                className="w-full rounded-full border border-violet-500/70 bg-black/20 px-4 py-2 text-sm font-medium text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isRecommending ? '⏳ Analyzing...' : '💡 Get Recommendations'}
-              </button>
+              {features && isRecommending && (
+                <p className="text-sm text-violet-50/70">⏳ Generating color recommendations...</p>
+              )}
+              {features && !isRecommending && colorRecommendations && (
+                <p className="text-sm text-green-400">✓ {colorRecommendations.length} colors recommended</p>
+              )}
+              {isModelLoading && (
+                <p className="text-xs text-violet-50/50 mt-2">Loading recommendation model...</p>
+              )}
             </div>
 
             {/* Color Palette */}
