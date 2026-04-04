@@ -21,8 +21,9 @@ export function VoiceNavigation({
   const navigate = useNavigate()
   const location = useLocation()
   const { detectIntention, isProcessing } = useIntentionDetection()
-  const { transcript, isSupported, startListening, stopListening, clearTranscript, lastProcessedTranscript, setLastProcessedTranscript } = useVoice()
+  const { transcript, clearTranscript, lastProcessedTranscript, setLastProcessedTranscript } = useVoice()
   const processingRef = useRef(false)
+  const speechRef = useRef<SpeechSynthesisUtterance | null>(null)
 
   const handleVoiceCommand = useCallback(async (text: string) => {
     console.log('Voice command received:', text)
@@ -60,7 +61,8 @@ export function VoiceNavigation({
         break
       
       case 'navigate_back':
-        window.history.back()
+        console.log('Going back to previous page')
+        navigate(-1)
         speak('Going back')
         break
       
@@ -145,25 +147,20 @@ export function VoiceNavigation({
     }
   }, [navigate, location, onCategoryChange, onCameraStart, onCameraStop, onAnalyze, detectIntention])
 
-  // Text-to-speech feedback
-  const speak = (text: string) => {
+  // Text-to-speech feedback (only speak once)
+  const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel()
+      
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.rate = 1.0
       utterance.pitch = 1.0
       utterance.volume = 0.8
+      speechRef.current = utterance
       window.speechSynthesis.speak(utterance)
     }
-  }
-
-  // Start/stop listening based on isEnabled
-  useEffect(() => {
-    if (isEnabled && isSupported) {
-      startListening()
-    } else {
-      stopListening()
-    }
-  }, [isEnabled, isSupported, startListening, stopListening])
+  }, [])
 
   // Process transcript when it changes
   useEffect(() => {
@@ -179,28 +176,38 @@ export function VoiceNavigation({
       return
     }
     
-    console.log('🎤 Processing:', transcript)
+    console.log('🎤 New command:', transcript)
     
-    // Mark as processing
+    // Mark as processing immediately
     processingRef.current = true
     setLastProcessedTranscript(transcript)
     
     // Process the command
     handleVoiceCommand(transcript)
       .then(() => {
-        console.log('✅ Command completed')
+        console.log('✅ Done')
       })
       .catch((error) => {
-        console.error('❌ Command failed:', error)
+        console.error('❌ Error:', error)
       })
       .finally(() => {
-        // Clear after processing
+        // Clear and reset after delay
         setTimeout(() => {
           clearTranscript()
           processingRef.current = false
-        }, 2000) // 2 second delay before accepting next command
+          console.log('📤 Ready for next command')
+        }, 2000)
       })
-  }, [transcript, isEnabled, isProcessing, lastProcessedTranscript])
+  }, [transcript, isEnabled, isProcessing, lastProcessedTranscript, handleVoiceCommand, clearTranscript, setLastProcessedTranscript])
+
+  // Cleanup speech on unmount
+  useEffect(() => {
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel()
+      }
+    }
+  }, [])
 
   return null // This component doesn't render anything, it just handles voice logic
 }

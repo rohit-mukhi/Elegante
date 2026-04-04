@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useRef } from 'react'
+import { createContext, useContext, useState, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { useVoiceRecognition } from '../hooks/useVoiceRecognition'
 
@@ -8,8 +8,6 @@ interface VoiceContextType {
   isListening: boolean
   isSupported: boolean
   transcript: string
-  startListening: () => void
-  stopListening: () => void
   clearTranscript: () => void
   lastProcessedTranscript: string
   setLastProcessedTranscript: (transcript: string) => void
@@ -26,6 +24,17 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
     lastProcessedRef.current = transcript
   }
 
+  // Handle start/stop listening based on isVoiceEnabled
+  useEffect(() => {
+    if (isVoiceEnabled && isSupported) {
+      console.log('🎤 Starting voice recognition from context')
+      startListening()
+    } else if (!isVoiceEnabled) {
+      console.log('🔇 Stopping voice recognition from context')
+      stopListening()
+    }
+  }, [isVoiceEnabled, isSupported, startListening, stopListening])
+
   return (
     <VoiceContext.Provider
       value={{
@@ -34,8 +43,6 @@ export function VoiceProvider({ children }: { children: ReactNode }) {
         isListening,
         isSupported,
         transcript,
-        startListening,
-        stopListening,
         clearTranscript,
         lastProcessedTranscript: lastProcessedRef.current,
         setLastProcessedTranscript
