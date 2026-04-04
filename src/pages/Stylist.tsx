@@ -4,7 +4,6 @@ import { useAppearanceDetection } from '../hooks/useAppearanceDetection'
 import { useColorRecommendation } from '../hooks/useColorRecommendation'
 import { getColorRgba, expandColors } from '../utils/colorPalette'
 import { VoiceNavigation } from '../components/VoiceNavigation'
-import { VoiceIndicator } from '../components/VoiceIndicator'
 import { useVoice } from '../contexts/VoiceContext'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
@@ -18,7 +17,7 @@ export default function Stylist() {
   const { isLoading, isAnalyzing, features, analyzeFeatures, dispose: disposeAppearance } = useAppearanceDetection(videoRef)
   const { getRecommendations } = useColorRecommendation()
   const [colorRecommendations, setColorRecommendations] = useState<string[] | null>(null)
-  const { isVoiceEnabled, setIsVoiceEnabled, isListening, isSupported } = useVoice()
+  const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
 
   const startCamera = async () => {
     try {
@@ -121,9 +120,6 @@ export default function Stylist() {
         onCameraStop={stopCamera}
         onAnalyze={analyzeFeatures}
       />
-      
-      {/* Voice Indicator */}
-      {isVoiceEnabled && <VoiceIndicator isListening={isListening} isProcessing={isAnalyzing} />}
       
       <div className="mx-auto max-w-7xl px-6 py-8 pb-20">
         {/* Header */}

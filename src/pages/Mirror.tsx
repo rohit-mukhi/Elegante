@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMediaPipePose } from '../hooks/useMediaPipePose'
 import { VoiceNavigation } from '../components/VoiceNavigation'
-import { VoiceIndicator } from '../components/VoiceIndicator'
 import { useVoice } from '../contexts/VoiceContext'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
@@ -16,7 +15,7 @@ export default function Mirror() {
   const streamRef = useRef<MediaStream | null>(null)
   const [selectedOutfit, setSelectedOutfit] = useState<string | null>(null)
   const { isLoading: poseLoading, measurements, startDetection, stopDetection, dispose: disposePose } = useMediaPipePose(videoRef)
-  const { isVoiceEnabled, setIsVoiceEnabled, isListening, isSupported } = useVoice()
+  const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
 
   const outfits = [
     { name: 'Classic Shirt', icon: '👔', color: 'Blue' },
@@ -86,9 +85,6 @@ export default function Mirror() {
         onCameraStart={startCamera}
         onCameraStop={stopCamera}
       />
-      
-      {/* Voice Indicator */}
-      {isVoiceEnabled && <VoiceIndicator isListening={isListening} isProcessing={poseLoading} />}
       
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* Header */}

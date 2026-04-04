@@ -4,8 +4,6 @@ import AOS from 'aos'
 import 'aos/dist/aos.css'
 import Hamburger from 'hamburger-react'
 import { VoiceNavigation } from '../components/VoiceNavigation'
-import { VoiceIndicator } from '../components/VoiceIndicator'
-import { VoiceDebug } from '../components/VoiceDebug'
 import { useVoice } from '../contexts/VoiceContext'
 
 const deals = [
@@ -83,7 +81,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('mens')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  const { isVoiceEnabled, setIsVoiceEnabled, isListening, isSupported, transcript } = useVoice()
+  const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
 
   useEffect(() => {
     AOS.init({ 
@@ -124,14 +122,6 @@ export default function Home() {
         onCategoryChange={setSelectedCategory}
       />
       
-      {/* Voice Indicator */}
-      {isVoiceEnabled && <VoiceIndicator isListening={isListening} isProcessing={false} />}
-      
-      {/* Debug Panel */}
-      {isVoiceEnabled && <VoiceDebug isListening={isListening} transcript={transcript} isSupported={isSupported} />}
-      
-      {/* Debug Panel - Remove this after testing */}
-      {isVoiceEnabled && <VoiceDebug isListening={isListening} transcript={transcript} isSupported={isSupported} />}
       {/* Navigation */}
       <nav ref={menuRef} className="fixed top-0 w-full z-50 backdrop-blur-md bg-purple-950/85 border-b border-yellow-500/25">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
