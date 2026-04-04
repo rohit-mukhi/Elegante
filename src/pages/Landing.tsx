@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 import Hamburger from 'hamburger-react'
+import virtualTryOnImage from '../assets/Landing-Page/virtual-try-on.png'
 
 export default function Landing() {
   const navigate = useNavigate()
@@ -80,12 +81,13 @@ export default function Landing() {
             </div>
             <div data-aos="fade-left" className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-gray-300/20 rounded-3xl blur-3xl"></div>
-              <div className="relative bg-gradient-to-br from-violet-900/70 to-purple-950/70 backdrop-blur-xl rounded-3xl p-8 border border-yellow-400/35">
-                <div className="aspect-square bg-gradient-to-br from-yellow-400/10 to-gray-300/10 rounded-2xl flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-6xl mb-4">✨</div>
-                    <p className="text-gray-200">AI-Powered Virtual Try-On</p>
-                  </div>
+              <div className="relative bg-gradient-to-br from-violet-900/70 to-purple-950/70 backdrop-blur-xl rounded-3xl p-8 border border-yellow-400/35 overflow-hidden">
+                <div className="aspect-square rounded-2xl overflow-hidden">
+                  <img 
+                    src={virtualTryOnImage} 
+                    alt="AI-Powered Virtual Try-On" 
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </div>
             </div>
