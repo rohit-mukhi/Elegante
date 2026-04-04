@@ -5,7 +5,7 @@ import { useColorRecommendation } from '../hooks/useColorRecommendation'
 import { getColorRgba, expandColors } from '../utils/colorPalette'
 import { VoiceNavigation } from '../components/VoiceNavigation'
 import { VoiceIndicator } from '../components/VoiceIndicator'
-import { useVoiceRecognition } from '../hooks/useVoiceRecognition'
+import { useVoice } from '../contexts/VoiceContext'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
@@ -13,13 +13,12 @@ export default function Stylist() {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [cameraActive, setCameraActive] = useState(false)
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const { isLoading, isAnalyzing, features, analyzeFeatures, dispose: disposeAppearance } = useAppearanceDetection(videoRef)
   const { getRecommendations } = useColorRecommendation()
   const [colorRecommendations, setColorRecommendations] = useState<string[] | null>(null)
-  const { isListening, isSupported, transcript, startListening, stopListening, clearTranscript } = useVoiceRecognition()
+  const { isVoiceEnabled, setIsVoiceEnabled, isListening, isSupported, transcript, startListening, stopListening, clearTranscript } = useVoice()
 
   const startCamera = async () => {
     try {

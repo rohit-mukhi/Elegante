@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMediaPipePose } from '../hooks/useMediaPipePose'
 import { VoiceNavigation } from '../components/VoiceNavigation'
 import { VoiceIndicator } from '../components/VoiceIndicator'
-import { useVoiceRecognition } from '../hooks/useVoiceRecognition'
+import { useVoice } from '../contexts/VoiceContext'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
@@ -11,13 +11,12 @@ export default function Mirror() {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [cameraActive, setCameraActive] = useState(false)
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [selectedOutfit, setSelectedOutfit] = useState<string | null>(null)
   const { isLoading: poseLoading, measurements, startDetection, stopDetection, dispose: disposePose } = useMediaPipePose(videoRef)
-  const { isListening, isSupported, transcript, startListening, stopListening, clearTranscript } = useVoiceRecognition()
+  const { isVoiceEnabled, setIsVoiceEnabled, isListening, isSupported, transcript, startListening, stopListening, clearTranscript } = useVoice()
 
   const outfits = [
     { name: 'Classic Shirt', icon: '👔', color: 'Blue' },

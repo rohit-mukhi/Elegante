@@ -6,7 +6,7 @@ import Hamburger from 'hamburger-react'
 import { VoiceNavigation } from '../components/VoiceNavigation'
 import { VoiceIndicator } from '../components/VoiceIndicator'
 import { VoiceDebug } from '../components/VoiceDebug'
-import { useVoiceRecognition } from '../hooks/useVoiceRecognition'
+import { useVoice } from '../contexts/VoiceContext'
 
 const deals = [
   { id: 1, title: 'Summer Sale - Up to 50% Off', image: '🌞', bg: 'from-yellow-400 to-orange-500' },
@@ -82,9 +82,8 @@ export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [selectedCategory, setSelectedCategory] = useState('mens')
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
-  const { isListening, isSupported, transcript, startListening, stopListening, clearTranscript } = useVoiceRecognition()
+  const { isVoiceEnabled, setIsVoiceEnabled, isListening, isSupported, transcript, startListening, stopListening, clearTranscript } = useVoice()
 
   useEffect(() => {
     AOS.init({ 
