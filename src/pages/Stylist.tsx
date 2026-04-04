@@ -12,7 +12,7 @@ export default function Stylist() {
   const [cameraActive, setCameraActive] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const { isLoading, isAnalyzing, features, analyzeFeatures } = useAppearanceDetection(videoRef)
+  const { isLoading, isAnalyzing, features, analyzeFeatures, dispose: disposeAppearance } = useAppearanceDetection(videoRef)
   const { isModelLoading, isRecommending, getRecommendations } = useColorRecommendation()
   const [colorRecommendations, setColorRecommendations] = useState<string[] | null>(null)
 
@@ -55,6 +55,8 @@ export default function Stylist() {
     AOS.init({ duration: 800, once: false, mirror: true })
     return () => {
       stopCamera()
+      // Dispose models when component unmounts
+      disposeAppearance()
     }
   }, [])
 
@@ -154,6 +156,24 @@ export default function Stylist() {
                 style={{ transform: 'scaleX(-1)', display: cameraActive ? 'block' : 'none' }}
                 className="absolute inset-0 h-full w-full object-cover"
               />
+              {isLoading && cameraActive && (
+                <div className="absolute inset-0 flex h-full flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm z-10">
+                  <div className="flex h-16 w-16 items-center justify-center">
+                    <div className="h-12 w-12 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent"></div>
+                  </div>
+                  <p className="text-lg font-medium text-violet-50">Loading AI Models...</p>
+                  <p className="text-sm text-violet-50/70">Preparing appearance analysis</p>
+                </div>
+              )}
+              {isAnalyzing && cameraActive && !isLoading && (
+                <div className="absolute inset-0 flex h-full flex-col items-center justify-center gap-4 bg-black/40 backdrop-blur-sm z-10">
+                  <div className="flex h-16 w-16 items-center justify-center">
+                    <div className="h-12 w-12 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent"></div>
+                  </div>
+                  <p className="text-lg font-medium text-violet-50">Analyzing Features...</p>
+                  <p className="text-sm text-violet-50/70">Please hold still</p>
+                </div>
+              )}
               {!cameraActive && (
                 <div className="absolute inset-0 flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
                   <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400/20 to-purple-600/20">
@@ -174,9 +194,9 @@ export default function Stylist() {
                 <button
                   onClick={analyzeFeatures}
                   disabled={isLoading || isAnalyzing}
-                  className="flex-1 rounded-full border border-violet-500/70 bg-black/20 px-3 py-2 text-xs font-medium text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400 disabled:opacity-50 sm:px-4 sm:text-sm"
+                  className="flex-1 rounded-full border border-violet-500/70 bg-black/20 px-3 py-2 text-xs font-medium text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed sm:px-4 sm:text-sm"
                 >
-                  {isAnalyzing ? 'Analyzing...' : 'Analyze Features'}
+                  {isLoading ? 'Loading Models...' : isAnalyzing ? 'Analyzing...' : 'Analyze Features'}
                 </button>
                 <button
                   onClick={stopCamera}

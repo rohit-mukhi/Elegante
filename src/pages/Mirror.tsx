@@ -12,7 +12,7 @@ export default function Mirror() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [selectedOutfit, setSelectedOutfit] = useState<string | null>(null)
-  const { isLoading: poseLoading, measurements, startDetection, stopDetection } = useMediaPipePose(videoRef)
+  const { isLoading: poseLoading, measurements, startDetection, stopDetection, dispose: disposePose } = useMediaPipePose(videoRef)
 
   const outfits = [
     { name: 'Classic Shirt', icon: '👔', color: 'Blue' },
@@ -36,12 +36,12 @@ export default function Mirror() {
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        videoRef.current.onloadedmetadata = () => {
+        videoRef.current.onloadedmetadata = async () => {
           if (canvasRef.current && videoRef.current) {
             canvasRef.current.width = videoRef.current.videoWidth
             canvasRef.current.height = videoRef.current.videoHeight
             console.log('Starting detection with canvas:', canvasRef.current.width, canvasRef.current.height)
-            startDetection(canvasRef.current)
+            await startDetection(canvasRef.current)
           }
         }
       }
@@ -69,6 +69,8 @@ export default function Mirror() {
     AOS.init({ duration: 800, once: false, mirror: true })
     return () => {
       stopCamera()
+      // Dispose models when component unmounts
+      disposePose()
     }
   }, [])
 
@@ -131,6 +133,15 @@ export default function Mirror() {
                 style={{ transform: 'scaleX(-1)', display: cameraActive ? 'block' : 'none' }}
                 className="absolute inset-0 h-full w-full object-cover"
               />
+              {poseLoading && cameraActive && (
+                <div className="absolute inset-0 flex h-full flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm">
+                  <div className="flex h-16 w-16 items-center justify-center">
+                    <div className="h-12 w-12 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent"></div>
+                  </div>
+                  <p className="text-lg font-medium text-violet-50">Loading AI Model...</p>
+                  <p className="text-sm text-violet-50/70">This may take a few seconds</p>
+                </div>
+              )}
               {!cameraActive && (
                 <div className="absolute inset-0 flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
                   <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400/20 to-purple-600/20">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { PoseLandmarker, FilesetResolver, DrawingUtils } from '@mediapipe/tasks-vision'
 
 export interface BodyMeasurements {
@@ -12,45 +12,46 @@ export interface BodyMeasurements {
 }
 
 export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement>) {
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [measurements, setMeasurements] = useState<BodyMeasurements | null>(null)
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const isInitializedRef = useRef(false)
 
-  useEffect(() => {
-    const initializePoseLandmarker = async () => {
-      try {
-        const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-        )
-        
-        const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-            delegate: 'GPU'
-          },
-          runningMode: 'VIDEO',
-          numPoses: 1,
-          minPoseDetectionConfidence: 0.5,
-          minPosePresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5
-        })
-
-        poseLandmarkerRef.current = poseLandmarker
-        setIsLoading(false)
-      } catch (error) {
-        console.error('Error initializing pose landmarker:', error)
-        setIsLoading(false)
-      }
+  const initializePoseLandmarker = useCallback(async () => {
+    if (isInitializedRef.current || poseLandmarkerRef.current) {
+      return poseLandmarkerRef.current
     }
 
-    initializePoseLandmarker()
+    setIsLoading(true)
+    try {
+      console.log('Lazy loading MediaPipe Pose model...')
+      const vision = await FilesetResolver.forVisionTasks(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+      )
+      
+      const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+          delegate: 'GPU'
+        },
+        runningMode: 'VIDEO',
+        numPoses: 1,
+        minPoseDetectionConfidence: 0.5,
+        minPosePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      })
 
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
+      poseLandmarkerRef.current = poseLandmarker
+      isInitializedRef.current = true
+      console.log('MediaPipe Pose model loaded successfully')
+      setIsLoading(false)
+      return poseLandmarker
+    } catch (error) {
+      console.error('Error initializing pose landmarker:', error)
+      setIsLoading(false)
+      return null
     }
   }, [])
 
@@ -192,9 +193,10 @@ export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement>) {
     animationFrameRef.current = requestAnimationFrame(detectPose)
   }
 
-  const startDetection = (canvas: HTMLCanvasElement) => {
+  const startDetection = async (canvas: HTMLCanvasElement) => {
     canvasRef.current = canvas
-    if (!isLoading && poseLandmarkerRef.current) {
+    const model = await initializePoseLandmarker()
+    if (model) {
       detectPose()
     }
   }
@@ -207,10 +209,21 @@ export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement>) {
     setMeasurements(null)
   }
 
+  const dispose = () => {
+    console.log('Disposing MediaPipe Pose model...')
+    stopDetection()
+    if (poseLandmarkerRef.current) {
+      poseLandmarkerRef.current = null
+    }
+    isInitializedRef.current = false
+    setIsLoading(false)
+  }
+
   return {
     isLoading,
     measurements,
     startDetection,
-    stopDetection
+    stopDetection,
+    dispose
   }
 }

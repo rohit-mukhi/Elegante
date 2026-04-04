@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { PoseLandmarker, FaceLandmarker, ImageSegmenter, FilesetResolver } from '@mediapipe/tasks-vision'
 
 export interface AppearanceFeatures {
@@ -13,41 +13,44 @@ export interface AppearanceFeatures {
 }
 
 export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElement>) {
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [features, setFeatures] = useState<AppearanceFeatures | null>(null)
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null)
   const faceLandmarkerRef = useRef<FaceLandmarker | null>(null)
   const segmenterRef = useRef<ImageSegmenter | null>(null)
+  const isInitializedRef = useRef(false)
 
-  useEffect(() => {
-    const initialize = async () => {
-      try {
-        const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-        )
+  const initialize = useCallback(async () => {
+    if (isInitializedRef.current) {
+      return true
+    }
 
-        const pose = await PoseLandmarker.createFromOptions(vision, {
+    setIsLoading(true)
+    try {
+      console.log('Lazy loading MediaPipe models for appearance detection...')
+      const vision = await FilesetResolver.forVisionTasks(
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+      )
+
+      const [pose, face, segmenter] = await Promise.all([
+        PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
             delegate: 'GPU'
           },
           runningMode: 'VIDEO',
           numPoses: 1
-        })
-        poseLandmarkerRef.current = pose
-
-        const face = await FaceLandmarker.createFromOptions(vision, {
+        }),
+        FaceLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
             delegate: 'GPU'
           },
           runningMode: 'VIDEO',
           numFaces: 1
-        })
-        faceLandmarkerRef.current = face
-
-        const segmenter = await ImageSegmenter.createFromOptions(vision, {
+        }),
+        ImageSegmenter.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite',
             delegate: 'GPU'
@@ -55,16 +58,21 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
           runningMode: 'VIDEO',
           outputCategoryMask: true
         })
-        segmenterRef.current = segmenter
+      ])
 
-        setIsLoading(false)
-      } catch (error) {
-        console.error('Failed to initialize MediaPipe:', error)
-        setIsLoading(false)
-      }
+      poseLandmarkerRef.current = pose
+      faceLandmarkerRef.current = face
+      segmenterRef.current = segmenter
+      isInitializedRef.current = true
+
+      console.log('MediaPipe models loaded successfully')
+      setIsLoading(false)
+      return true
+    } catch (error) {
+      console.error('Failed to initialize MediaPipe:', error)
+      setIsLoading(false)
+      return false
     }
-
-    initialize()
   }, [])
 
   const rgbToLab = (r: number, g: number, b: number) => {
@@ -161,7 +169,13 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
   }
 
   const analyzeFeatures = async () => {
-    if (!videoRef.current || !poseLandmarkerRef.current || !faceLandmarkerRef.current || !segmenterRef.current) {
+    if (!videoRef.current) {
+      return
+    }
+
+    // Initialize models if not already loaded
+    const initialized = await initialize()
+    if (!initialized || !poseLandmarkerRef.current || !faceLandmarkerRef.current || !segmenterRef.current) {
       return
     }
 
@@ -309,5 +323,15 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     }
   }
 
-  return { features, isLoading, isAnalyzing, analyzeFeatures }
+  const dispose = () => {
+    console.log('Disposing MediaPipe appearance detection models...')
+    poseLandmarkerRef.current = null
+    faceLandmarkerRef.current = null
+    segmenterRef.current = null
+    isInitializedRef.current = false
+    setIsLoading(false)
+    setFeatures(null)
+  }
+
+  return { features, isLoading, isAnalyzing, analyzeFeatures, dispose }
 }
