@@ -108,7 +108,7 @@ export default function Stylist() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-950 via-violet-950 to-purple-900 text-zinc-50">
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="mx-auto max-w-7xl px-6 py-8 pb-20">
         {/* Header */}
         <header className="relative flex items-center justify-between border-b border-violet-900/50 pb-6">
           <button onClick={() => navigate('/home')} className="flex items-center gap-2">
@@ -234,32 +234,15 @@ export default function Stylist() {
               )}
             </div>
 
-            {/* Style Recommendations */}
-            <div data-aos="fade-up" data-aos-delay="200" className="rounded-2xl border border-violet-900/50 bg-black/35 p-6 backdrop-blur-md">
-              <h3 className="mb-3 text-lg font-semibold text-violet-50">Color Analysis Status</h3>
-              {!features && (
-                <p className="text-sm text-violet-50/70">Analyze your features to get color recommendations</p>
-              )}
-              {features && isRecommending && (
-                <p className="text-sm text-violet-50/70">⏳ Generating color recommendations...</p>
-              )}
-              {features && !isRecommending && colorRecommendations && (
-                <p className="text-sm text-green-400">✓ {colorRecommendations.length} colors recommended</p>
-              )}
-              {isModelLoading && (
-                <p className="text-xs text-violet-50/50 mt-2">Loading recommendation model...</p>
-              )}
-            </div>
-
             {/* Color Palette */}
-            <div data-aos="fade-up" data-aos-delay="300" className="rounded-2xl border border-violet-900/50 bg-black/35 p-6 backdrop-blur-md">
+            <div data-aos="fade-up" data-aos-delay="200" className="rounded-2xl border border-violet-900/50 bg-black/35 p-6 backdrop-blur-md">
               <h3 className="mb-3 text-lg font-semibold text-violet-50">Your Color Palette</h3>
               <p className="text-sm text-violet-50/70 mb-4">Colors that complement your features</p>
               {!colorRecommendations && (
                 <p className="text-xs text-violet-50/50 mb-4">Analyze your features first to see recommendations</p>
               )}
               {colorRecommendations && colorRecommendations.length > 0 && (
-                <div className="space-y-3 mb-4">
+                <div className="space-y-3">
                   {colorRecommendations.map((color, index) => (
                     <div
                       key={index}
