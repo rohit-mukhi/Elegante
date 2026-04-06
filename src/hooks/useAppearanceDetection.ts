@@ -33,30 +33,63 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
       )
 
+      // Try GPU first, fallback to CPU on mobile if GPU fails
+      let delegate: 'GPU' | 'CPU' = 'GPU'
+      
       const [pose, face, segmenter] = await Promise.all([
         PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-            delegate: 'GPU'
+            delegate
           },
           runningMode: 'VIDEO',
           numPoses: 1
+        }).catch(async (err) => {
+          console.warn('GPU delegate failed for pose, trying CPU:', err)
+          return PoseLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+              delegate: 'CPU'
+            },
+            runningMode: 'VIDEO',
+            numPoses: 1
+          })
         }),
         FaceLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-            delegate: 'GPU'
+            delegate
           },
           runningMode: 'VIDEO',
           numFaces: 1
+        }).catch(async (err) => {
+          console.warn('GPU delegate failed for face, trying CPU:', err)
+          return FaceLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+              delegate: 'CPU'
+            },
+            runningMode: 'VIDEO',
+            numFaces: 1
+          })
         }),
         ImageSegmenter.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite',
-            delegate: 'GPU'
+            delegate
           },
           runningMode: 'VIDEO',
           outputCategoryMask: true
+        }).catch(async (err) => {
+          console.warn('GPU delegate failed for segmenter, trying CPU:', err)
+          return ImageSegmenter.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite',
+              delegate: 'CPU'
+            },
+            runningMode: 'VIDEO',
+            outputCategoryMask: true
+          })
         })
       ])
 
@@ -70,6 +103,7 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
       return true
     } catch (error) {
       console.error('Failed to initialize MediaPipe:', error)
+      alert(`Failed to load AI models: ${error instanceof Error ? error.message : 'Unknown error'}. Please refresh and try again.`)
       setIsLoading(false)
       return false
     }

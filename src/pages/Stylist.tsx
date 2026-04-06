@@ -16,7 +16,7 @@ export default function Stylist() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const { isLoading, isAnalyzing, features, analyzeFeatures, dispose: disposeAppearance } = useAppearanceDetection(videoRef)
-  const { getRecommendations } = useColorRecommendation()
+  const { getRecommendations, isModelLoading } = useColorRecommendation()
   const [colorRecommendations, setColorRecommendations] = useState<string[] | null>(null)
   const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
 
@@ -299,10 +299,16 @@ export default function Stylist() {
             <div data-aos="fade-up" data-aos-delay="200" className="rounded-2xl border border-violet-900/50 bg-black/35 p-6 backdrop-blur-md">
               <h3 className="mb-3 text-lg font-semibold text-violet-50">Your Color Palette</h3>
               <p className="text-sm text-violet-50/70 mb-4">Colors that complement your features</p>
-              {!colorRecommendations && (
+              {isModelLoading && (
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent"></div>
+                  <p className="text-xs text-violet-50/50">Loading color model...</p>
+                </div>
+              )}
+              {!isModelLoading && !colorRecommendations && (
                 <p className="text-xs text-violet-50/50 mb-4">Analyze your features first to see recommendations</p>
               )}
-              {colorRecommendations && colorRecommendations.length > 0 && (
+              {!isModelLoading && colorRecommendations && colorRecommendations.length > 0 && (
                 <div className="space-y-3">
                   {colorRecommendations.map((color, index) => (
                     <div
