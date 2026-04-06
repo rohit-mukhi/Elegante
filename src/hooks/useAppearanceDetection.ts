@@ -212,7 +212,8 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     const brightness = (r + g + b) / 3
     const redness = r - (g + b) / 2
     
-    if (brightness < 70) return 'Black'
+    // More lenient black detection (increased from 70 to 90)
+    if (brightness < 90) return 'Black'
     if (redness > 40 && brightness < 160) return 'Red'
     if (brightness < 160) return 'Brown'
     if (brightness > 200) return 'Blonde'
@@ -230,9 +231,14 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     if (b > r && b > g && b > 80) return 'Blue'
     if (g > r && g > b && g > 80) return 'Green'
     if (g > 100 && r > 100 && b < 80) return 'Hazel'
-    if (r < 60 && g < 60 && b < 60) return 'Black'
+    
+    // More lenient black detection (increased from 60 to 80)
+    if (r < 80 && g < 80 && b < 80) return 'Black'
+    
     const brightness = (r + g + b) / 3
-    if (brightness < 100) return 'Brown'
+    // Adjusted threshold for black eyes (increased from 100 to 120)
+    if (brightness < 120) return 'Black'
+    if (brightness < 160) return 'Brown'
     return 'Light Brown'
   }
 
@@ -297,7 +303,8 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
       })
 
       const poseResults = poseLandmarkerRef.current.detectForVideo(video, performance.now())
-      let bodyType = 'Rectangle'
+      let bodyType = 'Rectangle' // Default fallback for model compatibility
+      let bodyTypeDetected = false
       let shoulderToHipRatio = 1.0
       let waistToHipRatio = 0.8
 
@@ -308,15 +315,32 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         const leftHip = landmarks[23]
         const rightHip = landmarks[24]
 
-        const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x)
-        const hipWidth = Math.abs(rightHip.x - leftHip.x)
-        shoulderToHipRatio = shoulderWidth / hipWidth
+        // Check if all required landmarks are visible and in frame
+        const isShoulderVisible = leftShoulder.visibility > 0.7 && rightShoulder.visibility > 0.7
+        const isHipVisible = leftHip.visibility > 0.7 && rightHip.visibility > 0.7
+        const isInFrame = 
+          leftShoulder.x >= 0 && leftShoulder.x <= 1 &&
+          rightShoulder.x >= 0 && rightShoulder.x <= 1 &&
+          leftHip.x >= 0 && leftHip.x <= 1 &&
+          rightHip.x >= 0 && rightHip.x <= 1
 
-        const waistWidth = shoulderWidth * 0.75
-        waistToHipRatio = waistWidth / hipWidth
-
-        bodyType = classifyBodyType(shoulderToHipRatio, waistToHipRatio)
+        // Only calculate body type if shoulders AND hips are clearly visible
+        if (isShoulderVisible && isHipVisible && isInFrame) {
+          const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x)
+          const hipWidth = Math.abs(rightHip.x - leftHip.x)
+          
+          // Only calculate if measurements are reasonable (not too small)
+          if (shoulderWidth > 0.1 && hipWidth > 0.1) {
+            shoulderToHipRatio = shoulderWidth / hipWidth
+            const waistWidth = shoulderWidth * 0.75
+            waistToHipRatio = waistWidth / hipWidth
+            bodyType = classifyBodyType(shoulderToHipRatio, waistToHipRatio)
+            bodyTypeDetected = true
+          }
+        }
       }
+
+      console.log(`Body type detection: ${bodyTypeDetected ? 'Detected' : 'Not visible, using default'} - ${bodyType}`)
 
       setLoadingProgress({
         stage: 'analyzing',

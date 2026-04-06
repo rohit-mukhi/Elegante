@@ -18,7 +18,7 @@ export default function Stylist() {
   const { isLoading, isAnalyzing, features, loadingProgress, analyzeFeatures, dispose: disposeAppearance } = useAppearanceDetection(videoRef)
   const { getRecommendations, isModelLoading, isRecommending, colorProgress } = useColorRecommendation()
   const [colorRecommendations, setColorRecommendations] = useState<string[] | null>(null)
-  const [debugInfo, setDebugInfo] = useState<string>('')
+  // const [debugInfo, setDebugInfo] = useState<string>('') // Disabled for production
   const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
 
   const startCamera = async () => {
@@ -311,7 +311,12 @@ export default function Stylist() {
                 <p className="text-sm text-violet-50/50">Loading models...</p>
               )}
               {cameraActive && !isLoading && !features && (
-                <p className="text-sm text-violet-50/50">Click Analyze Features button</p>
+                <div>
+                  <p className="text-sm text-violet-50/50 mb-3">Click Analyze Features button</p>
+                  <div className="p-3 bg-yellow-400/10 border border-yellow-400/30 rounded-lg">
+                    <p className="text-xs text-yellow-400">💡 Tip: For accurate body type detection, step back to show your full body from head to toe</p>
+                  </div>
+                </div>
               )}
               {cameraActive && features && (
                 <div className="space-y-3">
@@ -339,7 +344,14 @@ export default function Stylist() {
                   </div>
                   <div className="flex justify-between rounded-lg bg-black/30 p-3">
                     <span className="text-sm text-violet-50/70">Body Type</span>
-                    <span className="text-sm font-medium text-yellow-400">{features.bodyType}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-yellow-400">{features.bodyType}</span>
+                      {features.bodyType === 'Rectangle' && (
+                        <span className="text-xs text-violet-50/50" title="Body not fully visible in frame">
+                          (default)
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -350,12 +362,12 @@ export default function Stylist() {
               <h3 className="mb-3 text-lg font-semibold text-violet-50">Your Color Palette</h3>
               <p className="text-sm text-violet-50/70 mb-4">Colors that complement your features</p>
               
-              {/* Debug Info */}
-              {debugInfo && (
+              {/* Debug Info - Removed for production */}
+              {/* {debugInfo && (
                 <div className="mb-4 p-3 bg-yellow-400/10 border border-yellow-400/30 rounded-lg">
                   <p className="text-xs font-mono text-yellow-400">{debugInfo}</p>
                 </div>
-              )}
+              )} */}
               
               {/* Color Model Loading */}
               {isModelLoading && colorProgress.stage !== 'idle' && (
