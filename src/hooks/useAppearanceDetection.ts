@@ -122,25 +122,10 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
       const segmenter = await ImageSegmenter.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite',
-          delegate
+          delegate: 'CPU' // Force CPU for mobile compatibility
         },
         runningMode: 'VIDEO',
         outputCategoryMask: true
-      }).catch(async (err) => {
-        console.warn('GPU delegate failed for segmenter, trying CPU:', err)
-        setLoadingProgress({
-          stage: 'downloading-models',
-          message: 'GPU unavailable, using CPU for Segmentation...',
-          progress: 70
-        })
-        return ImageSegmenter.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite',
-            delegate: 'CPU'
-          },
-          runningMode: 'VIDEO',
-          outputCategoryMask: true
-        })
       })
 
       setLoadingProgress({
@@ -401,19 +386,40 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         progress: 75
       })
 
-      const segmentResults = segmenterRef.current.segmentForVideo(video, performance.now())
       let skinR = 0, skinG = 0, skinB = 0, skinCount = 0
 
-      if (segmentResults.categoryMask) {
-        const mask = segmentResults.categoryMask.getAsUint8Array()
+      try {
+        const segmentResults = segmenterRef.current.segmentForVideo(video, performance.now())
+
+        if (segmentResults.categoryMask) {
+          const mask = segmentResults.categoryMask.getAsUint8Array()
+          
+          for (let i = 0; i < mask.length; i++) {
+            if (mask[i] > 0) {
+              const pixelIndex = i * 4
+              skinR += imageData.data[pixelIndex]
+              skinG += imageData.data[pixelIndex + 1]
+              skinB += imageData.data[pixelIndex + 2]
+              skinCount++
+            }
+          }
+        }
+      } catch (segmentError) {
+        console.warn('Segmentation failed, using fallback skin tone detection:', segmentError)
+        // Fallback: Sample center region of face for skin tone
+        const centerX = Math.floor(canvas.width / 2)
+        const centerY = Math.floor(canvas.height / 2)
+        const sampleSize = 50
         
-        for (let i = 0; i < mask.length; i++) {
-          if (mask[i] > 0) {
-            const pixelIndex = i * 4
-            skinR += imageData.data[pixelIndex]
-            skinG += imageData.data[pixelIndex + 1]
-            skinB += imageData.data[pixelIndex + 2]
-            skinCount++
+        for (let y = centerY - sampleSize; y < centerY + sampleSize; y++) {
+          for (let x = centerX - sampleSize; x < centerX + sampleSize; x++) {
+            if (x >= 0 && x < canvas.width && y >= 0 && y < canvas.height) {
+              const pixelIndex = (y * canvas.width + x) * 4
+              skinR += imageData.data[pixelIndex]
+              skinG += imageData.data[pixelIndex + 1]
+              skinB += imageData.data[pixelIndex + 2]
+              skinCount++
+            }
           }
         }
       }
