@@ -18,6 +18,7 @@ export default function Stylist() {
   const { isLoading, isAnalyzing, features, loadingProgress, analyzeFeatures, dispose: disposeAppearance } = useAppearanceDetection(videoRef)
   const { getRecommendations, isModelLoading, isRecommending, colorProgress } = useColorRecommendation()
   const [colorRecommendations, setColorRecommendations] = useState<string[] | null>(null)
+  const [debugInfo, setDebugInfo] = useState<string>('')
   const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
 
   const startCamera = async () => {
@@ -67,22 +68,26 @@ export default function Stylist() {
   useEffect(() => {
     // Automatically get color recommendations when features are analyzed
     if (features && !isAnalyzing) {
+      console.log('🎯 Features detected, triggering color recommendations...')
+      console.log('Features:', features)
       handleGetRecommendations()
     }
   }, [features, isAnalyzing])
 
   const handleGetRecommendations = async () => {
     if (!features) {
-      console.log('No features available')
+      console.log('❌ No features available')
+      setDebugInfo('❌ No features available')
       return
     }
 
-    console.log('Features detected:', features)
+    console.log('✅ Features detected:', features)
+    setDebugInfo('✅ Features detected')
 
     // Determine torso length based on measurements
     const torsoLength = 'Balanced' // Default, could be calculated from pose data
 
-    console.log('Calling getRecommendations with:', {
+    console.log('📞 Calling getRecommendations with:', {
       hairColor: features.hairColor,
       eyeColor: features.eyeColor,
       skinTone: features.skinTone,
@@ -90,29 +95,52 @@ export default function Stylist() {
       torsoLength,
       bodyType: features.bodyType
     })
+    setDebugInfo('📞 Calling color model...')
 
     // Show loading state
     setColorRecommendations(null)
 
-    const recommendations = await getRecommendations(
-      features.hairColor,
-      features.eyeColor,
-      features.skinTone,
-      features.underTone,
-      torsoLength,
-      features.bodyType
-    )
+    try {
+      const recommendations = await getRecommendations(
+        features.hairColor,
+        features.eyeColor,
+        features.skinTone,
+        features.underTone,
+        torsoLength,
+        features.bodyType
+      )
 
-    console.log('Recommendations received:', recommendations)
+      console.log('📦 Recommendations received:', recommendations)
+      setDebugInfo(`📦 Received: ${recommendations ? 'YES' : 'NO'}`)
 
-    if (recommendations) {
-      // Expand base colors into specific shades with randomization
-      const expandedColors = expandColors(recommendations.topColors, 6)
-      setColorRecommendations(expandedColors)
-      console.log('Expanded colors set:', expandedColors)
-    } else {
-      console.log('No recommendations returned')
-      alert('Failed to generate color recommendations. Please try again.')
+      if (recommendations) {
+        console.log('🎨 Top colors from model:', recommendations.topColors)
+        setDebugInfo(`🎨 Top colors: ${recommendations.topColors.join(', ')}`)
+        
+        // Expand base colors into specific shades with randomization
+        const expandedColors = expandColors(recommendations.topColors, 6)
+        console.log('🌈 Expanded colors:', expandedColors)
+        setDebugInfo(`🌈 Expanded: ${expandedColors.length} colors`)
+        
+        if (expandedColors && expandedColors.length > 0) {
+          setColorRecommendations(expandedColors)
+          console.log('✅ Color recommendations set successfully!')
+          console.log('State updated with:', expandedColors)
+          setDebugInfo(`✅ SUCCESS! ${expandedColors.length} colors set`)
+        } else {
+          console.error('❌ Expanded colors is empty or null')
+          setDebugInfo('❌ Expansion failed - empty result')
+          alert('Color expansion failed. Please try again.')
+        }
+      } else {
+        console.error('❌ No recommendations returned from model')
+        setDebugInfo('❌ Model returned null')
+        alert('Failed to generate color recommendations. Please try again.')
+      }
+    } catch (error) {
+      console.error('❌ Error in handleGetRecommendations:', error)
+      setDebugInfo(`❌ Error: ${error instanceof Error ? error.message : 'Unknown'}`)
+      alert(`Error generating colors: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -321,6 +349,13 @@ export default function Stylist() {
             <div data-aos="fade-up" data-aos-delay="200" className="rounded-2xl border border-violet-900/50 bg-black/35 p-6 backdrop-blur-md">
               <h3 className="mb-3 text-lg font-semibold text-violet-50">Your Color Palette</h3>
               <p className="text-sm text-violet-50/70 mb-4">Colors that complement your features</p>
+              
+              {/* Debug Info */}
+              {debugInfo && (
+                <div className="mb-4 p-3 bg-yellow-400/10 border border-yellow-400/30 rounded-lg">
+                  <p className="text-xs font-mono text-yellow-400">{debugInfo}</p>
+                </div>
+              )}
               
               {/* Color Model Loading */}
               {isModelLoading && colorProgress.stage !== 'idle' && (

@@ -132,20 +132,43 @@ export const getColorRgba = (colorName: string): string => {
 
 // Expand base color categories into specific shades with randomization
 export const expandColors = (baseColors: string[], maxColors: number = 6): string[] => {
+  console.log('🎨 expandColors called with:', baseColors, 'maxColors:', maxColors)
+  
+  if (!baseColors || baseColors.length === 0) {
+    console.error('❌ expandColors: baseColors is empty or null')
+    return []
+  }
+  
   const expandedColors: string[] = []
   
   for (const baseColor of baseColors) {
+    console.log('🔍 Processing base color:', baseColor)
     const shades = colorExpansion[baseColor]
+    
+    if (!shades) {
+      console.warn(`⚠️ No shades found for base color: ${baseColor}`)
+      continue
+    }
+    
+    console.log(`✅ Found ${shades.length} shades for ${baseColor}:`, shades)
+    
     if (shades && shades.length > 0) {
       // Shuffle the shades array to get different colors each time
       const shuffled = [...shades].sort(() => Math.random() - 0.5)
       // Take a random subset (2-3 colors per category)
       const count = Math.min(Math.floor(Math.random() * 2) + 2, shades.length)
-      expandedColors.push(...shuffled.slice(0, count))
+      const selected = shuffled.slice(0, count)
+      console.log(`📌 Selected ${selected.length} shades:`, selected)
+      expandedColors.push(...selected)
     }
   }
   
+  console.log('🎨 Total expanded colors before shuffle:', expandedColors.length, expandedColors)
+  
   // Shuffle the final array and limit to maxColors
   const finalColors = expandedColors.sort(() => Math.random() - 0.5)
-  return finalColors.slice(0, Math.min(maxColors, finalColors.length))
+  const result = finalColors.slice(0, Math.min(maxColors, finalColors.length))
+  
+  console.log('✅ Final colors to return:', result.length, result)
+  return result
 }
