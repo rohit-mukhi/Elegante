@@ -37,7 +37,6 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
   const faceLandmarkerRef = useRef<FaceLandmarker | null>(null)
   const segmenterRef = useRef<ImageSegmenter | null>(null)
   const isInitializedRef = useRef(false)
-  const frameBufferRef = useRef<ColorSample[][]>([]) // [frame][sample_type: hair, eye, skin]
 
   const initialize = useCallback(async () => {
     if (isInitializedRef.current) {
@@ -415,7 +414,6 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
       try {
         const poseResults = poseLandmarkerRef.current.detectForVideo(video, performance.now())
       let bodyType = 'Rectangle' // Default fallback for model compatibility
-      let bodyTypeDetected = false
       let shoulderToHipRatio = 1.0
       let waistToHipRatio = 0.8
 
@@ -446,7 +444,6 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
             const waistWidth = shoulderWidth * 0.75
             waistToHipRatio = waistWidth / hipWidth
             bodyType = classifyBodyType(shoulderToHipRatio, waistToHipRatio)
-            bodyTypeDetected = true
           }
         }
       }
