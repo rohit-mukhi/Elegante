@@ -336,7 +336,10 @@ export default function Stylist() {
                   </div>
                   <div className="flex justify-between rounded-lg bg-black/30 p-3">
                     <span className="text-sm text-violet-50/70">Skin Tone</span>
-                    <span className="text-sm font-medium text-yellow-400">{features.skinTone}</span>
+                    <div className="flex flex-col items-end">
+                      <span className="text-sm font-medium text-yellow-400">{features.skinTone}</span>
+                      <span className="text-xs text-violet-50/40">ITA: {features.skinToneITA.toFixed(1)}°</span>
+                    </div>
                   </div>
                   <div className="flex justify-between rounded-lg bg-black/30 p-3">
                     <span className="text-sm text-violet-50/70">Skin Undertone</span>

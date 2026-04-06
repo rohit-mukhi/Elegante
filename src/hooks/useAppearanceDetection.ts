@@ -197,11 +197,14 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
   }
 
   const classifySkinTone = (ita: number) => {
-    if (ita > 55) return 'Very Fair'
-    if (ita > 41) return 'Fair'
-    if (ita > 28) return 'Medium'
-    if (ita > 10) return 'Brown'
-    return 'Very Dark'
+    // Adjusted thresholds - more conservative classification
+    // Accounts for typical indoor lighting making skin appear lighter
+    if (ita > 58) return 'Very Fair'  // Increased from 55 (stricter)
+    if (ita > 44) return 'Fair'       // Increased from 41 (stricter)
+    if (ita > 31) return 'Medium'     // Increased from 28 (stricter)
+    if (ita > 22) return 'Olive'      // Increased from 19 (stricter)
+    if (ita > 13) return 'Brown'      // Increased from 10 (stricter)
+    return 'Very Dark'                 // < 13
   }
 
   const classifyHairColor = (hex: string): string => {
@@ -430,21 +433,51 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         }
       } catch (segmentError) {
         console.warn('Segmentation failed, using fallback skin tone detection:', segmentError)
-        // Fallback: Sample center region of face for skin tone
-        const centerX = Math.floor(canvas.width / 2)
-        const centerY = Math.floor(canvas.height / 2)
-        const sampleSize = 50
-        
-        for (let y = centerY - sampleSize; y < centerY + sampleSize; y++) {
-          for (let x = centerX - sampleSize; x < centerX + sampleSize; x++) {
-            if (x >= 0 && x < canvas.width && y >= 0 && y < canvas.height) {
-              const pixelIndex = (y * canvas.width + x) * 4
-              skinR += imageData.data[pixelIndex]
-              skinG += imageData.data[pixelIndex + 1]
-              skinB += imageData.data[pixelIndex + 2]
-              skinCount++
+        // Fallback: Sample face region for skin tone (more accurate than center)
+        if (faceResults.faceLandmarks && faceResults.faceLandmarks.length > 0) {
+          const landmarks = faceResults.faceLandmarks[0]
+          // Sample cheek area (more representative of skin tone)
+          const cheekPoints = [205, 425, 206, 426, 207, 427, 187, 411, 192, 416]
+          
+          cheekPoints.forEach(idx => {
+            if (landmarks[idx]) {
+              const x = Math.floor(landmarks[idx].x * canvas.width)
+              const y = Math.floor(landmarks[idx].y * canvas.height)
+              // Sample 5x5 area around each point for better accuracy
+              for (let dy = -2; dy <= 2; dy++) {
+                for (let dx = -2; dx <= 2; dx++) {
+                  const px = x + dx
+                  const py = y + dy
+                  if (px >= 0 && px < canvas.width && py >= 0 && py < canvas.height) {
+                    const pixelIndex = (py * canvas.width + px) * 4
+                    skinR += imageData.data[pixelIndex]
+                    skinG += imageData.data[pixelIndex + 1]
+                    skinB += imageData.data[pixelIndex + 2]
+                    skinCount++
+                  }
+                }
+              }
+            }
+          })
+          console.log('Using face landmarks for skin tone (cheek area)')
+        } else {
+          // Last resort: Sample center region
+          const centerX = Math.floor(canvas.width / 2)
+          const centerY = Math.floor(canvas.height / 2)
+          const sampleSize = 50
+          
+          for (let y = centerY - sampleSize; y < centerY + sampleSize; y++) {
+            for (let x = centerX - sampleSize; x < centerX + sampleSize; x++) {
+              if (x >= 0 && x < canvas.width && y >= 0 && y < canvas.height) {
+                const pixelIndex = (y * canvas.width + x) * 4
+                skinR += imageData.data[pixelIndex]
+                skinG += imageData.data[pixelIndex + 1]
+                skinB += imageData.data[pixelIndex + 2]
+                skinCount++
+              }
             }
           }
+          console.log('Using center region for skin tone (last resort)')
         }
       }
 
@@ -457,10 +490,19 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         const avgG = skinG / skinCount
         const avgB = skinB / skinCount
         
+        console.log(`Skin RGB average: R=${avgR.toFixed(1)}, G=${avgG.toFixed(1)}, B=${avgB.toFixed(1)}`)
+        
         const lab = rgbToLab(avgR, avgG, avgB)
         skinToneITA = calculateITA(lab.L, lab.b)
+        
+        console.log(`LAB values: L=${lab.L.toFixed(2)}, a=${lab.a.toFixed(2)}, b=${lab.b.toFixed(2)}`)
+        console.log(`ITA value: ${skinToneITA.toFixed(2)}`)
+        
         skinTone = classifySkinTone(skinToneITA)
+        console.log(`Classified skin tone: ${skinTone}`)
+        
         underTone = determineUndertone(avgR, avgG, avgB)
+        console.log(`Undertone: ${underTone}`)
       }
 
       setLoadingProgress({
