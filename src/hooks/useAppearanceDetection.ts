@@ -12,6 +12,12 @@ export interface AppearanceFeatures {
   skinToneITA: number
 }
 
+interface ColorSample {
+  r: number
+  g: number
+  b: number
+}
+
 export interface LoadingProgress {
   stage: 'idle' | 'downloading-models' | 'initializing' | 'analyzing' | 'complete'
   message: string
@@ -31,6 +37,7 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
   const faceLandmarkerRef = useRef<FaceLandmarker | null>(null)
   const segmenterRef = useRef<ImageSegmenter | null>(null)
   const isInitializedRef = useRef(false)
+  const frameBufferRef = useRef<ColorSample[][]>([]) // [frame][sample_type: hair, eye, skin]
 
   const initialize = useCallback(async () => {
     if (isInitializedRef.current) {
@@ -269,6 +276,100 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     } : null
   }
 
+  // White balance correction using gray world algorithm
+  const normalizeWhiteBalance = (imageData: ImageData): ImageData => {
+    const data = imageData.data
+    let rSum = 0, gSum = 0, bSum = 0, count = 0
+
+    // Calculate average RGB values
+    for (let i = 0; i < data.length; i += 4) {
+      rSum += data[i]
+      gSum += data[i + 1]
+      bSum += data[i + 2]
+      count++
+    }
+
+    const rAvg = rSum / count
+    const gAvg = gSum / count
+    const bAvg = bSum / count
+    const grayAvg = (rAvg + gAvg + bAvg) / 3
+
+    // Calculate correction factors
+    const rScale = grayAvg / rAvg
+    const gScale = grayAvg / gAvg
+    const bScale = grayAvg / bAvg
+
+    // Apply correction
+    const normalized = new ImageData(imageData.width, imageData.height)
+    for (let i = 0; i < data.length; i += 4) {
+      normalized.data[i] = Math.min(255, data[i] * rScale)
+      normalized.data[i + 1] = Math.min(255, data[i + 1] * gScale)
+      normalized.data[i + 2] = Math.min(255, data[i + 2] * bScale)
+      normalized.data[i + 3] = data[i + 3]
+    }
+
+    return normalized
+  }
+
+  // Sample pixels with median filtering to remove outliers
+  const samplePixelsWithMedian = (
+    imageData: ImageData,
+    points: Array<{ x: number; y: number }>,
+    radius: number = 3
+  ): ColorSample | null => {
+    const samples: ColorSample[] = []
+    const width = imageData.width
+    const height = imageData.height
+
+    points.forEach(point => {
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const x = Math.floor(point.x + dx)
+          const y = Math.floor(point.y + dy)
+          if (x >= 0 && x < width && y >= 0 && y < height) {
+            const pixelIndex = (y * width + x) * 4
+            samples.push({
+              r: imageData.data[pixelIndex],
+              g: imageData.data[pixelIndex + 1],
+              b: imageData.data[pixelIndex + 2]
+            })
+          }
+        }
+      }
+    })
+
+    if (samples.length === 0) return null
+
+    // Calculate median for each channel to remove outliers
+    const rValues = samples.map(s => s.r).sort((a, b) => a - b)
+    const gValues = samples.map(s => s.g).sort((a, b) => a - b)
+    const bValues = samples.map(s => s.b).sort((a, b) => a - b)
+
+    const mid = Math.floor(samples.length / 2)
+    return {
+      r: rValues[mid],
+      g: gValues[mid],
+      b: bValues[mid]
+    }
+  }
+
+  // Average multiple frames for stability
+  const averageFrames = (frames: ColorSample[]): ColorSample => {
+    const sum = frames.reduce(
+      (acc, frame) => ({
+        r: acc.r + frame.r,
+        g: acc.g + frame.g,
+        b: acc.b + frame.b
+      }),
+      { r: 0, g: 0, b: 0 }
+    )
+    return {
+      r: Math.round(sum.r / frames.length),
+      g: Math.round(sum.g / frames.length),
+      b: Math.round(sum.b / frames.length)
+    }
+  }
+
   const analyzeFeatures = async () => {
     if (!videoRef.current) {
       return
@@ -281,31 +382,38 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     }
 
     setIsAnalyzing(true)
-    setLoadingProgress({
-      stage: 'analyzing',
-      message: 'Capturing video frame...',
-      progress: 10
-    })
-
-    const video = videoRef.current
     
-    const canvas = document.createElement('canvas')
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })
-    if (!ctx) return
+    // Multi-frame capture for averaging
+    const numFrames = 5
+    const frameDelay = 200 // ms between frames
+    const hairSamples: ColorSample[] = []
+    const eyeSamples: ColorSample[] = []
+    const skinSamples: ColorSample[] = []
+    let bodyTypeResults: string[] = []
 
-    ctx.drawImage(video, 0, 0)
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-
-    try {
+    for (let frameIdx = 0; frameIdx < numFrames; frameIdx++) {
       setLoadingProgress({
         stage: 'analyzing',
-        message: 'Detecting body landmarks...',
-        progress: 25
+        message: `Capturing frame ${frameIdx + 1}/${numFrames}...`,
+        progress: 10 + (frameIdx * 15)
       })
 
-      const poseResults = poseLandmarkerRef.current.detectForVideo(video, performance.now())
+      const video = videoRef.current
+      
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (!ctx) continue
+
+      ctx.drawImage(video, 0, 0)
+      let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      
+      // Apply white balance normalization
+      imageData = normalizeWhiteBalance(imageData)
+
+      try {
+        const poseResults = poseLandmarkerRef.current.detectForVideo(video, performance.now())
       let bodyType = 'Rectangle' // Default fallback for model compatibility
       let bodyTypeDetected = false
       let shoulderToHipRatio = 1.0
@@ -343,156 +451,114 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         }
       }
 
-      console.log(`Body type detection: ${bodyTypeDetected ? 'Detected' : 'Not visible, using default'} - ${bodyType}`)
+        bodyTypeResults.push(bodyType)
 
-      setLoadingProgress({
-        stage: 'analyzing',
-        message: 'Analyzing facial features...',
-        progress: 50
-      })
+        const faceResults = faceLandmarkerRef.current.detectForVideo(video, performance.now())
 
-      const faceResults = faceLandmarkerRef.current.detectForVideo(video, performance.now())
-      let hairColorHex = '#000000'
-      let eyeColorHex = '#654321'
-
-      if (faceResults.faceLandmarks && faceResults.faceLandmarks.length > 0) {
-        const landmarks = faceResults.faceLandmarks[0]
-        
-        const foreheadPoints = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288]
-        let hairR = 0, hairG = 0, hairB = 0, hairCount = 0
-        
-        foreheadPoints.forEach(idx => {
-          if (landmarks[idx]) {
-            const x = Math.floor(landmarks[idx].x * canvas.width)
-            const y = Math.floor(landmarks[idx].y * canvas.height)
-            if (x >= 0 && x < canvas.width && y >= 0 && y < canvas.height) {
-              const pixelIndex = (y * canvas.width + x) * 4
-              hairR += imageData.data[pixelIndex]
-              hairG += imageData.data[pixelIndex + 1]
-              hairB += imageData.data[pixelIndex + 2]
-              hairCount++
-            }
-          }
-        })
-        
-        if (hairCount > 0) {
-          const r = Math.round(hairR / hairCount)
-          const g = Math.round(hairG / hairCount)
-          const b = Math.round(hairB / hairCount)
-          hairColorHex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
-        }
-
-        const eyePoints = [468, 469, 470, 471, 472, 473, 474, 475, 476, 477]
-        let eyeR = 0, eyeG = 0, eyeB = 0, eyeCount = 0
-        
-        eyePoints.forEach(idx => {
-          if (landmarks[idx]) {
-            const x = Math.floor(landmarks[idx].x * canvas.width)
-            const y = Math.floor(landmarks[idx].y * canvas.height)
-            if (x >= 0 && x < canvas.width && y >= 0 && y < canvas.height) {
-              const pixelIndex = (y * canvas.width + x) * 4
-              eyeR += imageData.data[pixelIndex]
-              eyeG += imageData.data[pixelIndex + 1]
-              eyeB += imageData.data[pixelIndex + 2]
-              eyeCount++
-            }
-          }
-        })
-        
-        if (eyeCount > 0) {
-          const r = Math.round(eyeR / eyeCount)
-          const g = Math.round(eyeG / eyeCount)
-          const b = Math.round(eyeB / eyeCount)
-          eyeColorHex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
-        }
-      }
-
-      setLoadingProgress({
-        stage: 'analyzing',
-        message: 'Analyzing skin tone...',
-        progress: 75
-      })
-
-      let skinR = 0, skinG = 0, skinB = 0, skinCount = 0
-
-      try {
-        const segmentResults = segmenterRef.current.segmentForVideo(video, performance.now())
-
-        if (segmentResults.categoryMask) {
-          const mask = segmentResults.categoryMask.getAsUint8Array()
-          
-          for (let i = 0; i < mask.length; i++) {
-            if (mask[i] > 0) {
-              const pixelIndex = i * 4
-              skinR += imageData.data[pixelIndex]
-              skinG += imageData.data[pixelIndex + 1]
-              skinB += imageData.data[pixelIndex + 2]
-              skinCount++
-            }
-          }
-        }
-      } catch (segmentError) {
-        console.warn('Segmentation failed, using fallback skin tone detection:', segmentError)
-        // Fallback: Sample face region for skin tone (more accurate than center)
         if (faceResults.faceLandmarks && faceResults.faceLandmarks.length > 0) {
           const landmarks = faceResults.faceLandmarks[0]
-          // Sample cheek area (more representative of skin tone)
-          const cheekPoints = [205, 425, 206, 426, 207, 427, 187, 411, 192, 416]
           
-          cheekPoints.forEach(idx => {
+          // IMPROVED HAIR SAMPLING: Sample ABOVE forehead, not at forehead
+          const foreheadPoints = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288]
+          const hairPoints: Array<{ x: number; y: number }> = []
+          
+          foreheadPoints.forEach(idx => {
             if (landmarks[idx]) {
-              const x = Math.floor(landmarks[idx].x * canvas.width)
-              const y = Math.floor(landmarks[idx].y * canvas.height)
-              // Sample 5x5 area around each point for better accuracy
-              for (let dy = -2; dy <= 2; dy++) {
-                for (let dx = -2; dx <= 2; dx++) {
-                  const px = x + dx
-                  const py = y + dy
-                  if (px >= 0 && px < canvas.width && py >= 0 && py < canvas.height) {
-                    const pixelIndex = (py * canvas.width + px) * 4
-                    skinR += imageData.data[pixelIndex]
-                    skinG += imageData.data[pixelIndex + 1]
-                    skinB += imageData.data[pixelIndex + 2]
-                    skinCount++
-                  }
-                }
+              const x = landmarks[idx].x * canvas.width
+              const y = landmarks[idx].y * canvas.height
+              // Sample 30-50 pixels ABOVE forehead to get actual hair
+              const hairY = y - 40
+              if (hairY >= 0) {
+                hairPoints.push({ x, y: hairY })
               }
             }
           })
-          console.log('Using face landmarks for skin tone (cheek area)')
-        } else {
-          // Last resort: Sample center region
-          const centerX = Math.floor(canvas.width / 2)
-          const centerY = Math.floor(canvas.height / 2)
-          const sampleSize = 50
           
-          for (let y = centerY - sampleSize; y < centerY + sampleSize; y++) {
-            for (let x = centerX - sampleSize; x < centerX + sampleSize; x++) {
-              if (x >= 0 && x < canvas.width && y >= 0 && y < canvas.height) {
-                const pixelIndex = (y * canvas.width + x) * 4
-                skinR += imageData.data[pixelIndex]
-                skinG += imageData.data[pixelIndex + 1]
-                skinB += imageData.data[pixelIndex + 2]
-                skinCount++
-              }
-            }
+          const hairSample = samplePixelsWithMedian(imageData, hairPoints, 5)
+          if (hairSample) {
+            hairSamples.push(hairSample)
           }
-          console.log('Using center region for skin tone (last resort)')
+
+          // IMPROVED EYE SAMPLING: Larger radius around iris points
+          const irisPoints = [468, 469, 470, 471, 472, 473, 474, 475, 476, 477]
+          const eyePoints: Array<{ x: number; y: number }> = []
+          
+          irisPoints.forEach(idx => {
+            if (landmarks[idx]) {
+              eyePoints.push({
+                x: landmarks[idx].x * canvas.width,
+                y: landmarks[idx].y * canvas.height
+              })
+            }
+          })
+          
+          const eyeSample = samplePixelsWithMedian(imageData, eyePoints, 8)
+          if (eyeSample) {
+            eyeSamples.push(eyeSample)
+          }
+
+          // IMPROVED SKIN SAMPLING: Always use cheek area (most reliable)
+          const cheekPoints = [205, 425, 206, 426, 207, 427, 187, 411, 192, 416]
+          const skinPoints: Array<{ x: number; y: number }> = []
+          
+          cheekPoints.forEach(idx => {
+            if (landmarks[idx]) {
+              skinPoints.push({
+                x: landmarks[idx].x * canvas.width,
+                y: landmarks[idx].y * canvas.height
+              })
+            }
+          })
+          
+          const skinSample = samplePixelsWithMedian(imageData, skinPoints, 6)
+          if (skinSample) {
+            skinSamples.push(skinSample)
+          }
         }
+      } catch (frameError) {
+        console.warn(`Frame ${frameIdx + 1} analysis failed:`, frameError)
       }
 
+      // Wait before next frame
+      if (frameIdx < numFrames - 1) {
+        await new Promise(resolve => setTimeout(resolve, frameDelay))
+      }
+    }
+
+    // Process averaged results
+    try {
+
+      setLoadingProgress({
+        stage: 'analyzing',
+        message: 'Processing multi-frame data...',
+        progress: 85
+      })
+
+      // Average all frames for final results
+      let hairColorHex = '#000000'
+      let eyeColorHex = '#654321'
       let skinTone = 'Fair'
       let skinToneITA = 0
       let underTone = 'Warm'
+      let bodyType = 'Rectangle'
 
-      if (skinCount > 0) {
-        const avgR = skinR / skinCount
-        const avgG = skinG / skinCount
-        const avgB = skinB / skinCount
+      if (hairSamples.length > 0) {
+        const avgHair = averageFrames(hairSamples)
+        hairColorHex = `#${avgHair.r.toString(16).padStart(2, '0')}${avgHair.g.toString(16).padStart(2, '0')}${avgHair.b.toString(16).padStart(2, '0')}`
+        console.log(`Hair RGB (averaged): R=${avgHair.r}, G=${avgHair.g}, B=${avgHair.b}`)
+      }
+
+      if (eyeSamples.length > 0) {
+        const avgEye = averageFrames(eyeSamples)
+        eyeColorHex = `#${avgEye.r.toString(16).padStart(2, '0')}${avgEye.g.toString(16).padStart(2, '0')}${avgEye.b.toString(16).padStart(2, '0')}`
+        console.log(`Eye RGB (averaged): R=${avgEye.r}, G=${avgEye.g}, B=${avgEye.b}`)
+      }
+
+      if (skinSamples.length > 0) {
+        const avgSkin = averageFrames(skinSamples)
+        console.log(`Skin RGB (averaged): R=${avgSkin.r}, G=${avgSkin.g}, B=${avgSkin.b}`)
         
-        console.log(`Skin RGB average: R=${avgR.toFixed(1)}, G=${avgG.toFixed(1)}, B=${avgB.toFixed(1)}`)
-        
-        const lab = rgbToLab(avgR, avgG, avgB)
+        const lab = rgbToLab(avgSkin.r, avgSkin.g, avgSkin.b)
         skinToneITA = calculateITA(lab.L, lab.b)
         
         console.log(`LAB values: L=${lab.L.toFixed(2)}, a=${lab.a.toFixed(2)}, b=${lab.b.toFixed(2)}`)
@@ -501,8 +567,18 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         skinTone = classifySkinTone(skinToneITA)
         console.log(`Classified skin tone: ${skinTone}`)
         
-        underTone = determineUndertone(avgR, avgG, avgB)
+        underTone = determineUndertone(avgSkin.r, avgSkin.g, avgSkin.b)
         console.log(`Undertone: ${underTone}`)
+      }
+
+      // Use most common body type from frames
+      if (bodyTypeResults.length > 0) {
+        const typeCounts = bodyTypeResults.reduce((acc, type) => {
+          acc[type] = (acc[type] || 0) + 1
+          return acc
+        }, {} as Record<string, number>)
+        bodyType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0][0]
+        console.log(`Body type (most common): ${bodyType}`)
       }
 
       setLoadingProgress({
@@ -513,6 +589,8 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
 
       const hairColor = classifyHairColor(hairColorHex)
       const eyeColor = classifyEyeColor(eyeColorHex)
+      
+      console.log(`Final classifications - Hair: ${hairColor}, Eye: ${eyeColor}, Skin: ${skinTone}`)
 
       setFeatures({
         hairColor,
