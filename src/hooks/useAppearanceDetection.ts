@@ -12,10 +12,21 @@ export interface AppearanceFeatures {
   skinToneITA: number
 }
 
+export interface LoadingProgress {
+  stage: 'idle' | 'downloading-models' | 'initializing' | 'analyzing' | 'complete'
+  message: string
+  progress: number // 0-100
+}
+
 export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElement | null>) {
   const [isLoading, setIsLoading] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [features, setFeatures] = useState<AppearanceFeatures | null>(null)
+  const [loadingProgress, setLoadingProgress] = useState<LoadingProgress>({
+    stage: 'idle',
+    message: '',
+    progress: 0
+  })
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null)
   const faceLandmarkerRef = useRef<FaceLandmarker | null>(null)
   const segmenterRef = useRef<ImageSegmenter | null>(null)
@@ -28,81 +39,143 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
 
     setIsLoading(true)
     try {
+      setLoadingProgress({
+        stage: 'downloading-models',
+        message: 'Connecting to MediaPipe servers...',
+        progress: 5
+      })
+
       console.log('Lazy loading MediaPipe models for appearance detection...')
       const vision = await FilesetResolver.forVisionTasks(
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
       )
 
+      setLoadingProgress({
+        stage: 'downloading-models',
+        message: 'Downloading Pose Detection Model (1/3)...',
+        progress: 15
+      })
+
       // Try GPU first, fallback to CPU on mobile if GPU fails
       let delegate: 'GPU' | 'CPU' = 'GPU'
       
-      const [pose, face, segmenter] = await Promise.all([
-        PoseLandmarker.createFromOptions(vision, {
+      const pose = await PoseLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+          delegate
+        },
+        runningMode: 'VIDEO',
+        numPoses: 1
+      }).catch(async (err) => {
+        console.warn('GPU delegate failed for pose, trying CPU:', err)
+        setLoadingProgress({
+          stage: 'downloading-models',
+          message: 'GPU unavailable, using CPU for Pose Model...',
+          progress: 20
+        })
+        return PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-            delegate
+            delegate: 'CPU'
           },
           runningMode: 'VIDEO',
           numPoses: 1
-        }).catch(async (err) => {
-          console.warn('GPU delegate failed for pose, trying CPU:', err)
-          return PoseLandmarker.createFromOptions(vision, {
-            baseOptions: {
-              modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-              delegate: 'CPU'
-            },
-            runningMode: 'VIDEO',
-            numPoses: 1
-          })
-        }),
-        FaceLandmarker.createFromOptions(vision, {
+        })
+      })
+
+      setLoadingProgress({
+        stage: 'downloading-models',
+        message: 'Downloading Face Detection Model (2/3)...',
+        progress: 40
+      })
+
+      const face = await FaceLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+          delegate
+        },
+        runningMode: 'VIDEO',
+        numFaces: 1
+      }).catch(async (err) => {
+        console.warn('GPU delegate failed for face, trying CPU:', err)
+        setLoadingProgress({
+          stage: 'downloading-models',
+          message: 'GPU unavailable, using CPU for Face Model...',
+          progress: 45
+        })
+        return FaceLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-            delegate
+            delegate: 'CPU'
           },
           runningMode: 'VIDEO',
           numFaces: 1
-        }).catch(async (err) => {
-          console.warn('GPU delegate failed for face, trying CPU:', err)
-          return FaceLandmarker.createFromOptions(vision, {
-            baseOptions: {
-              modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-              delegate: 'CPU'
-            },
-            runningMode: 'VIDEO',
-            numFaces: 1
-          })
-        }),
-        ImageSegmenter.createFromOptions(vision, {
+        })
+      })
+
+      setLoadingProgress({
+        stage: 'downloading-models',
+        message: 'Downloading Image Segmentation Model (3/3)...',
+        progress: 65
+      })
+
+      const segmenter = await ImageSegmenter.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite',
+          delegate
+        },
+        runningMode: 'VIDEO',
+        outputCategoryMask: true
+      }).catch(async (err) => {
+        console.warn('GPU delegate failed for segmenter, trying CPU:', err)
+        setLoadingProgress({
+          stage: 'downloading-models',
+          message: 'GPU unavailable, using CPU for Segmentation...',
+          progress: 70
+        })
+        return ImageSegmenter.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite',
-            delegate
+            delegate: 'CPU'
           },
           runningMode: 'VIDEO',
           outputCategoryMask: true
-        }).catch(async (err) => {
-          console.warn('GPU delegate failed for segmenter, trying CPU:', err)
-          return ImageSegmenter.createFromOptions(vision, {
-            baseOptions: {
-              modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter_landscape/float16/latest/selfie_segmenter_landscape.tflite',
-              delegate: 'CPU'
-            },
-            runningMode: 'VIDEO',
-            outputCategoryMask: true
-          })
         })
-      ])
+      })
+
+      setLoadingProgress({
+        stage: 'initializing',
+        message: 'Initializing AI models...',
+        progress: 90
+      })
 
       poseLandmarkerRef.current = pose
       faceLandmarkerRef.current = face
       segmenterRef.current = segmenter
       isInitializedRef.current = true
 
+      setLoadingProgress({
+        stage: 'complete',
+        message: 'Models ready!',
+        progress: 100
+      })
+
       console.log('MediaPipe models loaded successfully')
-      setIsLoading(false)
+      
+      // Clear loading state after a brief moment
+      setTimeout(() => {
+        setIsLoading(false)
+        setLoadingProgress({ stage: 'idle', message: '', progress: 0 })
+      }, 500)
+      
       return true
     } catch (error) {
       console.error('Failed to initialize MediaPipe:', error)
+      setLoadingProgress({
+        stage: 'idle',
+        message: 'Failed to load models',
+        progress: 0
+      })
       alert(`Failed to load AI models: ${error instanceof Error ? error.message : 'Unknown error'}. Please refresh and try again.`)
       setIsLoading(false)
       return false
@@ -214,6 +287,12 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     }
 
     setIsAnalyzing(true)
+    setLoadingProgress({
+      stage: 'analyzing',
+      message: 'Capturing video frame...',
+      progress: 10
+    })
+
     const video = videoRef.current
     
     const canvas = document.createElement('canvas')
@@ -226,6 +305,12 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
 
     try {
+      setLoadingProgress({
+        stage: 'analyzing',
+        message: 'Detecting body landmarks...',
+        progress: 25
+      })
+
       const poseResults = poseLandmarkerRef.current.detectForVideo(video, performance.now())
       let bodyType = 'Rectangle'
       let shoulderToHipRatio = 1.0
@@ -247,6 +332,12 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
 
         bodyType = classifyBodyType(shoulderToHipRatio, waistToHipRatio)
       }
+
+      setLoadingProgress({
+        stage: 'analyzing',
+        message: 'Analyzing facial features...',
+        progress: 50
+      })
 
       const faceResults = faceLandmarkerRef.current.detectForVideo(video, performance.now())
       let hairColorHex = '#000000'
@@ -304,6 +395,12 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         }
       }
 
+      setLoadingProgress({
+        stage: 'analyzing',
+        message: 'Analyzing skin tone...',
+        progress: 75
+      })
+
       const segmentResults = segmenterRef.current.segmentForVideo(video, performance.now())
       let skinR = 0, skinG = 0, skinB = 0, skinCount = 0
 
@@ -336,6 +433,12 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         underTone = determineUndertone(avgR, avgG, avgB)
       }
 
+      setLoadingProgress({
+        stage: 'analyzing',
+        message: 'Finalizing analysis...',
+        progress: 95
+      })
+
       const hairColor = classifyHairColor(hairColorHex)
       const eyeColor = classifyEyeColor(eyeColorHex)
 
@@ -350,8 +453,24 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         skinToneITA
       })
 
+      setLoadingProgress({
+        stage: 'complete',
+        message: 'Analysis complete!',
+        progress: 100
+      })
+
+      // Clear progress after brief moment
+      setTimeout(() => {
+        setLoadingProgress({ stage: 'idle', message: '', progress: 0 })
+      }, 1000)
+
     } catch (error) {
       console.error('Analysis error:', error)
+      setLoadingProgress({
+        stage: 'idle',
+        message: 'Analysis failed',
+        progress: 0
+      })
     } finally {
       setIsAnalyzing(false)
     }
@@ -367,5 +486,5 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     setFeatures(null)
   }
 
-  return { features, isLoading, isAnalyzing, analyzeFeatures, dispose }
+  return { features, isLoading, isAnalyzing, loadingProgress, analyzeFeatures, dispose }
 }

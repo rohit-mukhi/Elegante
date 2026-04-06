@@ -15,8 +15,8 @@ export default function Stylist() {
   const [cameraActive, setCameraActive] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const { isLoading, isAnalyzing, features, analyzeFeatures, dispose: disposeAppearance } = useAppearanceDetection(videoRef)
-  const { getRecommendations, isModelLoading } = useColorRecommendation()
+  const { isLoading, isAnalyzing, features, loadingProgress, analyzeFeatures, dispose: disposeAppearance } = useAppearanceDetection(videoRef)
+  const { getRecommendations, isModelLoading, isRecommending, colorProgress } = useColorRecommendation()
   const [colorRecommendations, setColorRecommendations] = useState<string[] | null>(null)
   const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
 
@@ -91,6 +91,9 @@ export default function Stylist() {
       bodyType: features.bodyType
     })
 
+    // Show loading state
+    setColorRecommendations(null)
+
     const recommendations = await getRecommendations(
       features.hairColor,
       features.eyeColor,
@@ -109,6 +112,7 @@ export default function Stylist() {
       console.log('Expanded colors set:', expandedColors)
     } else {
       console.log('No recommendations returned')
+      alert('Failed to generate color recommendations. Please try again.')
     }
   }
 
@@ -197,22 +201,23 @@ export default function Stylist() {
                 style={{ transform: 'scaleX(-1)', display: cameraActive ? 'block' : 'none' }}
                 className="absolute inset-0 h-full w-full object-cover"
               />
-              {isLoading && cameraActive && (
-                <div className="absolute inset-0 flex h-full flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm z-10">
+              {(isLoading || isAnalyzing) && cameraActive && (
+                <div className="absolute inset-0 flex h-full flex-col items-center justify-center gap-4 bg-black/70 backdrop-blur-sm z-10">
                   <div className="flex h-16 w-16 items-center justify-center">
                     <div className="h-12 w-12 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent"></div>
                   </div>
-                  <p className="text-lg font-medium text-violet-50">Loading AI Models...</p>
-                  <p className="text-sm text-violet-50/70">Preparing appearance analysis</p>
-                </div>
-              )}
-              {isAnalyzing && cameraActive && !isLoading && (
-                <div className="absolute inset-0 flex h-full flex-col items-center justify-center gap-4 bg-black/40 backdrop-blur-sm z-10">
-                  <div className="flex h-16 w-16 items-center justify-center">
-                    <div className="h-12 w-12 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent"></div>
-                  </div>
-                  <p className="text-lg font-medium text-violet-50">Analyzing Features...</p>
-                  <p className="text-sm text-violet-50/70">Please hold still</p>
+                  {loadingProgress.stage !== 'idle' && (
+                    <>
+                      <p className="text-lg font-medium text-violet-50">{loadingProgress.message}</p>
+                      <div className="w-64 bg-black/50 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-yellow-400 to-purple-600 transition-all duration-300"
+                          style={{ width: `${loadingProgress.progress}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-sm text-violet-50/70">{loadingProgress.progress}%</p>
+                    </>
+                  )}
                 </div>
               )}
               {!cameraActive && (
@@ -234,10 +239,27 @@ export default function Stylist() {
               <div className="mt-3 flex gap-2 sm:mt-4 sm:gap-3">
                 <button
                   onClick={analyzeFeatures}
-                  disabled={isLoading || isAnalyzing}
-                  className="flex-1 rounded-full border border-violet-500/70 bg-black/20 px-3 py-2 text-xs font-medium text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed sm:px-4 sm:text-sm"
+                  disabled={isLoading || isAnalyzing || isRecommending}
+                  className="flex-1 rounded-full border border-violet-500/70 bg-black/20 px-3 py-2 text-xs font-medium text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed sm:px-4 sm:text-sm flex items-center justify-center gap-2"
                 >
-                  {isLoading ? 'Loading Models...' : isAnalyzing ? 'Analyzing...' : 'Analyze Features'}
+                  {isLoading ? (
+                    <>
+                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent"></div>
+                      Loading Models...
+                    </>
+                  ) : isAnalyzing ? (
+                    <>
+                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent"></div>
+                      Analyzing...
+                    </>
+                  ) : isRecommending ? (
+                    <>
+                      <div className="h-3 w-3 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent"></div>
+                      Getting Colors...
+                    </>
+                  ) : (
+                    'Analyze Features'
+                  )}
                 </button>
                 <button
                   onClick={stopCamera}
@@ -299,21 +321,50 @@ export default function Stylist() {
             <div data-aos="fade-up" data-aos-delay="200" className="rounded-2xl border border-violet-900/50 bg-black/35 p-6 backdrop-blur-md">
               <h3 className="mb-3 text-lg font-semibold text-violet-50">Your Color Palette</h3>
               <p className="text-sm text-violet-50/70 mb-4">Colors that complement your features</p>
-              {isModelLoading && (
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent"></div>
-                  <p className="text-xs text-violet-50/50">Loading color model...</p>
+              
+              {/* Color Model Loading */}
+              {isModelLoading && colorProgress.stage !== 'idle' && (
+                <div className="mb-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent"></div>
+                    <p className="text-xs text-violet-50/70">{colorProgress.message}</p>
+                  </div>
+                  <div className="w-full bg-black/50 rounded-full h-1.5 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-yellow-400 to-purple-600 transition-all duration-300"
+                      style={{ width: `${colorProgress.progress}%` }}
+                    ></div>
+                  </div>
                 </div>
               )}
-              {!isModelLoading && !colorRecommendations && (
+              
+              {/* Color Generation Progress */}
+              {isRecommending && colorProgress.stage !== 'idle' && (
+                <div className="mb-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent"></div>
+                    <p className="text-xs text-violet-50/70">{colorProgress.message}</p>
+                  </div>
+                  <div className="w-full bg-black/50 rounded-full h-1.5 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-yellow-400 to-purple-600 transition-all duration-300"
+                      style={{ width: `${colorProgress.progress}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+              
+              {!isModelLoading && !isRecommending && !colorRecommendations && (
                 <p className="text-xs text-violet-50/50 mb-4">Analyze your features first to see recommendations</p>
               )}
-              {!isModelLoading && colorRecommendations && colorRecommendations.length > 0 && (
+              
+              {!isModelLoading && !isRecommending && colorRecommendations && colorRecommendations.length > 0 && (
                 <div className="space-y-3">
                   {colorRecommendations.map((color, index) => (
                     <div
                       key={index}
-                      className="flex items-center gap-3 rounded-lg bg-black/30 p-3"
+                      className="flex items-center gap-3 rounded-lg bg-black/30 p-3 animate-fade-in"
+                      style={{ animationDelay: `${index * 100}ms` }}
                     >
                       <div 
                         className="h-10 w-10 rounded-lg border border-violet-500/50 flex-shrink-0"
@@ -331,3 +382,21 @@ export default function Stylist() {
     </div>
   )
 }
+
+<style>{`
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fade-in {
+    animation: fade-in 0.5s ease-out forwards;
+    opacity: 0;
+  }
+`}</style>
