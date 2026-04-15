@@ -171,7 +171,7 @@ export function useIntentDetection() {
       })
 
       // Return best match if confidence is above threshold
-      if (bestMatch.score > 0.5) {
+      if (bestMatch.score > 0.35) {  // Lowered from 0.5 for better mobile performance
         return {
           intent: bestMatch.intent,
           confidence: bestMatch.score
