@@ -26,3 +26,6 @@ dist-ssr
 # Documentation files
 *.md
 !README.md
+
+# Backend folder (separate repo)
+backend/
