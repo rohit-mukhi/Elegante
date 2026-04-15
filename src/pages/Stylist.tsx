@@ -77,12 +77,10 @@ export default function Stylist() {
   const handleGetRecommendations = async () => {
     if (!features) {
       console.log('❌ No features available')
-      setDebugInfo('❌ No features available')
       return
     }
 
     console.log('✅ Features detected:', features)
-    setDebugInfo('✅ Features detected')
 
     // Determine torso length based on measurements
     const torsoLength = 'Balanced' // Default, could be calculated from pose data
@@ -95,7 +93,6 @@ export default function Stylist() {
       torsoLength,
       bodyType: features.bodyType
     })
-    setDebugInfo('📞 Calling color model...')
 
     // Show loading state
     setColorRecommendations(null)
@@ -111,35 +108,28 @@ export default function Stylist() {
       )
 
       console.log('📦 Recommendations received:', recommendations)
-      setDebugInfo(`📦 Received: ${recommendations ? 'YES' : 'NO'}`)
 
       if (recommendations) {
         console.log('🎨 Top colors from model:', recommendations.topColors)
-        setDebugInfo(`🎨 Top colors: ${recommendations.topColors.join(', ')}`)
         
         // Expand base colors into specific shades with randomization
         const expandedColors = expandColors(recommendations.topColors, 6)
         console.log('🌈 Expanded colors:', expandedColors)
-        setDebugInfo(`🌈 Expanded: ${expandedColors.length} colors`)
         
         if (expandedColors && expandedColors.length > 0) {
           setColorRecommendations(expandedColors)
           console.log('✅ Color recommendations set successfully!')
           console.log('State updated with:', expandedColors)
-          setDebugInfo(`✅ SUCCESS! ${expandedColors.length} colors set`)
         } else {
           console.error('❌ Expanded colors is empty or null')
-          setDebugInfo('❌ Expansion failed - empty result')
           alert('Color expansion failed. Please try again.')
         }
       } else {
         console.error('❌ No recommendations returned from model')
-        setDebugInfo('❌ Model returned null')
         alert('Failed to generate color recommendations. Please try again.')
       }
     } catch (error) {
       console.error('❌ Error in handleGetRecommendations:', error)
-      setDebugInfo(`❌ Error: ${error instanceof Error ? error.message : 'Unknown'}`)
       alert(`Error generating colors: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }

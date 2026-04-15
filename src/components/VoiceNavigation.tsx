@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useVoice } from '../contexts/VoiceContext'
+import { useIntentDetection } from '../hooks/useIntentDetection'
 
 interface VoiceNavigationProps {
   isEnabled: boolean
@@ -12,7 +13,7 @@ interface VoiceNavigationProps {
 
 export function VoiceNavigation({ 
   isEnabled,
-  onCategoryChange,
+  // onCategoryChange, // Not used with MiniLM intent detection
   onCameraStart,
   onCameraStop,
   onAnalyze
@@ -20,7 +21,19 @@ export function VoiceNavigation({
   const navigate = useNavigate()
   const location = useLocation()
   const { transcript, clearTranscript } = useVoice()
+  const { initialize, detectIntent, isLoading, progress } = useIntentDetection()
   const lastProcessedRef = useRef('')
+  const isInitializingRef = useRef(false)
+
+  // Initialize MiniLM model when voice is enabled
+  useEffect(() => {
+    if (isEnabled && !isLoading && !isInitializingRef.current) {
+      isInitializingRef.current = true
+      initialize().then(() => {
+        console.log('✅ MiniLM intent detection ready')
+      })
+    }
+  }, [isEnabled, initialize, isLoading])
 
   const speak = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
@@ -33,105 +46,91 @@ export function VoiceNavigation({
     }
   }, [])
 
-  const processCommand = useCallback((text: string) => {
-    const cmd = text.toLowerCase().trim()
-    console.log('🎯 Processing:', cmd)
+  const executeIntent = useCallback((intent: string, confidence: number) => {
+    console.log(`🎯 Executing intent: ${intent} (confidence: ${confidence.toFixed(2)})`)
 
-    // Navigation - check most specific patterns first
-    if (cmd.includes('mirror') || cmd.includes('try on') || cmd.includes('virtual')) {
-      navigate('/mirror')
-      speak('Mirror')
-      return true
-    }
-    
-    if (cmd.includes('stylist') || (cmd.includes('ai') && cmd.includes('style'))) {
-      navigate('/stylist')
-      speak('Stylist')
-      return true
-    }
-    
-    if (cmd.includes('home') || cmd.includes('homepage') || cmd.includes('main page')) {
-      navigate('/home')
-      speak('Home')
-      return true
-    }
-    
-    if (cmd.includes('back') || cmd.includes('go back')) {
-      navigate(-1)
-      speak('Back')
-      return true
-    }
-
-    // Categories (only on home page)
-    if (location.pathname === '/home' && onCategoryChange) {
-      if (cmd.includes('men') && !cmd.includes('women')) {
-        onCategoryChange('mens')
-        speak('Mens')
+    switch (intent) {
+      case 'back':
+        navigate(-1)
+        speak('Going back')
         return true
-      }
-      if (cmd.includes('women') || cmd.includes('ladies')) {
-        onCategoryChange('womens')
-        speak('Womens')
+      
+      case 'home':
+        navigate('/home')
+        speak('Home')
         return true
-      }
-      if (cmd.includes('kid') || cmd.includes('children')) {
-        onCategoryChange('kids')
-        speak('Kids')
+      
+      case 'open_mirror':
+        navigate('/mirror')
+        speak('Opening mirror')
         return true
-      }
-      if (cmd.includes('ethnic') || cmd.includes('traditional')) {
-        onCategoryChange('ethnic')
-        speak('Ethnic')
+      
+      case 'open_stylist':
+        navigate('/stylist')
+        speak('Opening stylist')
         return true
-      }
-      if (cmd.includes('casual')) {
-        onCategoryChange('casuals')
-        speak('Casuals')
+      
+      case 'start_camera':
+        if (location.pathname === '/mirror' || location.pathname === '/stylist') {
+          onCameraStart?.()
+          speak('Starting camera')
+          return true
+        }
+        break
+      
+      case 'stop_camera':
+        if (location.pathname === '/mirror' || location.pathname === '/stylist') {
+          onCameraStop?.()
+          speak('Stopping camera')
+          return true
+        }
+        break
+      
+      case 'analyze':
+        if (location.pathname === '/stylist') {
+          onAnalyze?.()
+          speak('Analyzing your features')
+          return true
+        }
+        break
+      
+      case 'search_outfit':
+        // TODO: Extract keywords and send to backend
+        console.log('🔍 Search outfit intent detected - backend integration needed')
+        speak('Outfit search coming soon')
         return true
-      }
-      if (cmd.includes('formal')) {
-        onCategoryChange('formal')
-        speak('Formal')
-        return true
-      }
-      if (cmd.includes('sport')) {
-        onCategoryChange('sports')
-        speak('Sports')
-        return true
-      }
-    }
-
-    // Camera controls
-    if ((location.pathname === '/mirror' || location.pathname === '/stylist')) {
-      if ((cmd.includes('start') || cmd.includes('open') || cmd.includes('turn on')) && cmd.includes('camera')) {
-        onCameraStart?.()
-        speak('Starting camera')
-        return true
-      }
-      if ((cmd.includes('stop') || cmd.includes('close')) && cmd.includes('camera')) {
-        onCameraStop?.()
-        speak('Stopping camera')
-        return true
-      }
-    }
-
-    // Analyze (stylist page only)
-    if (location.pathname === '/stylist') {
-      if (cmd.includes('analyze') || cmd.includes('scan') || cmd.includes('detect')) {
-        onAnalyze?.()
-        speak('Analyzing')
-        return true
-      }
-    }
-
-    // Help
-    if (cmd.includes('help')) {
-      speak('Say: go to mirror, go to stylist, go to home, start camera, or analyze')
-      return true
+      
+      default:
+        console.log('❓ Unknown intent:', intent)
+        return false
     }
 
     return false
-  }, [navigate, location, onCategoryChange, onCameraStart, onCameraStop, onAnalyze, speak])
+  }, [navigate, location, onCameraStart, onCameraStop, onAnalyze, speak])
+
+  const processCommand = useCallback(async (text: string) => {
+    console.log('🎤 Voice input:', text)
+
+    // Show loading state if model is still loading
+    if (isLoading) {
+      console.log('⏳ Model still loading...', progress.message)
+      return false
+    }
+
+    // Detect intent using MiniLM
+    const result = await detectIntent(text.toLowerCase().trim())
+    
+    if (!result) {
+      console.log('❌ No intent detected')
+      speak('Sorry, I did not understand that')
+      return false
+    }
+
+    console.log(`✅ Intent detected: ${result.intent} (${(result.confidence * 100).toFixed(0)}% confident)`)
+    
+    // Execute the detected intent
+    return executeIntent(result.intent, result.confidence)
+  }, [detectIntent, executeIntent, isLoading, progress, speak])
 
   useEffect(() => {
     if (!isEnabled || !transcript || transcript.length < 3) return
@@ -140,16 +139,18 @@ export function VoiceNavigation({
     if (transcript === lastProcessedRef.current) return
     
     lastProcessedRef.current = transcript
-    const processed = processCommand(transcript)
     
-    if (processed) {
-      console.log('✅ Command executed')
-    } else {
-      console.log('❌ Command not recognized')
-    }
+    // Process command asynchronously
+    processCommand(transcript).then((processed) => {
+      if (processed) {
+        console.log('✅ Command executed successfully')
+      } else {
+        console.log('⚠️ Command not executed')
+      }
+    })
     
-    // Clear after processing
-    setTimeout(() => clearTranscript(), 500)
+    // Clear after processing (with delay for intent detection)
+    setTimeout(() => clearTranscript(), 1500)
   }, [transcript, isEnabled, processCommand, clearTranscript])
 
   useEffect(() => {
