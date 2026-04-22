@@ -445,41 +445,6 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     return { quality, score, issues, avgBrightness }
   }
 
-  // White balance correction using gray world algorithm
-  const normalizeWhiteBalance = (imageData: ImageData): ImageData => {
-    const data = imageData.data
-    let rSum = 0, gSum = 0, bSum = 0, count = 0
-
-    // Calculate average RGB values
-    for (let i = 0; i < data.length; i += 4) {
-      rSum += data[i]
-      gSum += data[i + 1]
-      bSum += data[i + 2]
-      count++
-    }
-
-    const rAvg = rSum / count
-    const gAvg = gSum / count
-    const bAvg = bSum / count
-    const grayAvg = (rAvg + gAvg + bAvg) / 3
-
-    // Calculate correction factors
-    const rScale = grayAvg / rAvg
-    const gScale = grayAvg / gAvg
-    const bScale = grayAvg / bAvg
-
-    // Apply correction
-    const normalized = new ImageData(imageData.width, imageData.height)
-    for (let i = 0; i < data.length; i += 4) {
-      normalized.data[i] = Math.min(255, data[i] * rScale)
-      normalized.data[i + 1] = Math.min(255, data[i + 1] * gScale)
-      normalized.data[i + 2] = Math.min(255, data[i + 2] * bScale)
-      normalized.data[i + 3] = data[i + 3]
-    }
-
-    return normalized
-  }
-
   // Sample pixels with median filtering to remove outliers
   const samplePixelsWithMedian = (
     imageData: ImageData,
