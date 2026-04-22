@@ -45,6 +45,34 @@ export default function Stylist() {
         videoRef.current.srcObject = stream
       }
 
+      // Log camera capabilities and settings
+      const videoTrack = stream.getVideoTracks()[0]
+      const capabilities = videoTrack.getCapabilities()
+      const settings = videoTrack.getSettings()
+      
+      console.log('📷 Camera Capabilities:', capabilities)
+      console.log('📷 Camera Settings:', settings)
+      
+      // Check if exposure control is available
+      if (capabilities.exposureMode) {
+        console.log('✅ Exposure modes available:', capabilities.exposureMode)
+      }
+      if (capabilities.exposureCompensation) {
+        console.log('✅ Exposure compensation range:', capabilities.exposureCompensation)
+      }
+      if (capabilities.exposureTime) {
+        console.log('✅ Exposure time range:', capabilities.exposureTime)
+      }
+      if (settings.exposureMode) {
+        console.log('📊 Current exposure mode:', settings.exposureMode)
+      }
+      if (settings.exposureCompensation !== undefined) {
+        console.log('📊 Current exposure compensation:', settings.exposureCompensation)
+      }
+      if (settings.exposureTime !== undefined) {
+        console.log('📊 Current exposure time:', settings.exposureTime, 'μs')
+      }
+
       setCameraActive(true)
     } catch (err) {
       console.error('Camera access denied:', err)

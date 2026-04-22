@@ -332,9 +332,9 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
   const assessLightingQuality = (
     imageData: ImageData,
     facePoints: Array<{ x: number; y: number }>
-  ): { quality: 'excellent' | 'good' | 'fair' | 'poor', score: number, issues: string[] } => {
+  ): { quality: 'excellent' | 'good' | 'fair' | 'poor', score: number, issues: string[], avgBrightness: number } => {
     if (facePoints.length === 0) {
-      return { quality: 'fair', score: 50, issues: ['No face detected'] }
+      return { quality: 'fair', score: 50, issues: ['No face detected'], avgBrightness: 128 }
     }
 
     const data = imageData.data
@@ -375,7 +375,7 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     }
     
     if (count === 0) {
-      return { quality: 'fair', score: 50, issues: ['Face region too small'] }
+      return { quality: 'fair', score: 50, issues: ['Face region too small'], avgBrightness: 128 }
     }
     
     const rAvg = rSum / count
@@ -469,7 +469,7 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
       console.log(`  Issues: ${issues.join(', ')}`)
     }
     
-    return { quality, score, issues }
+    return { quality, score, issues, avgBrightness }
   }
 
   // White balance correction using gray world algorithm
@@ -579,6 +579,26 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
 
     setIsAnalyzing(true)
     
+    // Get camera exposure metadata if available
+    let exposureTime: number | undefined
+    let exposureCompensation: number | undefined
+    
+    if (videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream
+      const videoTrack = stream.getVideoTracks()[0]
+      const settings = videoTrack.getSettings()
+      
+      exposureTime = settings.exposureTime
+      exposureCompensation = settings.exposureCompensation
+      
+      if (exposureTime !== undefined) {
+        console.log(`📸 Camera exposure time: ${exposureTime}μs`)
+      }
+      if (exposureCompensation !== undefined) {
+        console.log(`📸 Camera exposure compensation: ${exposureCompensation}`)
+      }
+    }
+    
     // Multi-frame capture for averaging
     const numFrames = 5
     const frameDelay = 200 // ms between frames
@@ -587,6 +607,7 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     const skinSamples: ColorSample[] = []
     let bodyTypeResults: string[] = []
     let lightingScores: number[] = []
+    let faceRegionBrightness: number[] = []  // Track overall face brightness for normalization
     let debugCtx: CanvasRenderingContext2D | null = null
     
     if (debugCanvas) {
@@ -674,6 +695,7 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
           // Assess lighting quality on face region
           const lightingAssessment = assessLightingQuality(imageData, facePoints)
           lightingScores.push(lightingAssessment.score)
+          faceRegionBrightness.push(lightingAssessment.avgBrightness)  // Store for normalization
           
           // IMPROVED HAIR SAMPLING: Sample ABOVE forehead, not at forehead
           const foreheadPoints = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288]
@@ -844,12 +866,40 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         const avgSkin = averageFrames(skinSamples)
         console.log(`Skin RGB (averaged): R=${avgSkin.r}, G=${avgSkin.g}, B=${avgSkin.b}`)
         
-        // Calculate average brightness from face region for normalization
-        const faceBrightness = (avgSkin.r + avgSkin.g + avgSkin.b) / 3
-        console.log(`Face brightness (before normalization): ${faceBrightness.toFixed(1)}`)
+        // Use overall face region brightness (not just skin sample) for normalization
+        const overallFaceBrightness = faceRegionBrightness.length > 0 
+          ? faceRegionBrightness.reduce((a, b) => a + b, 0) / faceRegionBrightness.length
+          : (avgSkin.r + avgSkin.g + avgSkin.b) / 3
         
-        // Apply brightness normalization
-        const normalizedSkin = normalizeBrightness(avgSkin.r, avgSkin.g, avgSkin.b, faceBrightness)
+        console.log(`Overall face brightness (from lighting assessment): ${overallFaceBrightness.toFixed(1)}`)
+        
+        // Calculate exposure-aware correction factor
+        let exposureFactor = 1.0
+        if (exposureTime !== undefined) {
+          // Typical exposure times: 1000-30000 μs (1-30ms)
+          // Low exposure time (< 5000) = bright environment, camera reducing exposure
+          // High exposure time (> 15000) = dark environment, camera increasing exposure
+          const normalExposure = 8000 // Target: 8ms exposure
+          exposureFactor = exposureTime / normalExposure
+          console.log(`💡 Exposure-based correction factor: ${exposureFactor.toFixed(2)}x (${exposureTime}μs / ${normalExposure}μs)`)
+        }
+        
+        // Combine brightness normalization with exposure metadata
+        const targetBrightness = 160
+        const brightnessFactor = targetBrightness / overallFaceBrightness
+        const combinedFactor = exposureTime !== undefined 
+          ? (brightnessFactor * 0.6) + (exposureFactor * 0.4) // Weighted average
+          : brightnessFactor // Fallback to brightness-only
+        
+        console.log(`Brightness correction factor: ${brightnessFactor.toFixed(2)}x`)
+        console.log(`Combined correction factor: ${combinedFactor.toFixed(2)}x`)
+        
+        // Apply exposure-aware normalization
+        const normalizedSkin = {
+          r: Math.min(255, Math.max(0, avgSkin.r * combinedFactor)),
+          g: Math.min(255, Math.max(0, avgSkin.g * combinedFactor)),
+          b: Math.min(255, Math.max(0, avgSkin.b * combinedFactor))
+        }
         console.log(`Skin RGB (normalized): R=${normalizedSkin.r.toFixed(1)}, G=${normalizedSkin.g.toFixed(1)}, B=${normalizedSkin.b.toFixed(1)}`)
         
         const lab = rgbToLab(normalizedSkin.r, normalizedSkin.g, normalizedSkin.b)
@@ -858,7 +908,7 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         console.log(`LAB values: L=${lab.L.toFixed(2)}, a=${lab.a.toFixed(2)}, b=${lab.b.toFixed(2)}`)
         console.log(`ITA value: ${skinToneITA.toFixed(2)}`)
         
-        skinTone = classifySkinTone(skinToneITA, faceBrightness)
+        skinTone = classifySkinTone(skinToneITA, overallFaceBrightness)
         console.log(`Classified skin tone: ${skinTone}`)
         
         underTone = determineUndertone(normalizedSkin.r, normalizedSkin.g, normalizedSkin.b)
