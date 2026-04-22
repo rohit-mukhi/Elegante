@@ -515,7 +515,7 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     }
   }
 
-  const analyzeFeatures = async () => {
+  const analyzeFeatures = async (debugCanvas?: HTMLCanvasElement) => {
     if (!videoRef.current) {
       return
     }
@@ -536,6 +536,11 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     const skinSamples: ColorSample[] = []
     let bodyTypeResults: string[] = []
     let lightingScores: number[] = []
+    let debugCtx: CanvasRenderingContext2D | null = null
+    
+    if (debugCanvas) {
+      debugCtx = debugCanvas.getContext('2d')
+    }
 
     for (let frameIdx = 0; frameIdx < numFrames; frameIdx++) {
       setLoadingProgress({
@@ -674,6 +679,63 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
           const skinSample = samplePixelsWithMedian(imageData, skinPoints, 6)
           if (skinSample) {
             skinSamples.push(skinSample)
+          }
+          
+          // Draw debug overlay on last frame
+          if (debugCtx && frameIdx === numFrames - 1) {
+            debugCtx.clearRect(0, 0, debugCanvas!.width, debugCanvas!.height)
+            
+            // Draw hair sampling points (red)
+            debugCtx.fillStyle = 'rgba(255, 0, 0, 0.6)'
+            debugCtx.strokeStyle = 'red'
+            debugCtx.lineWidth = 2
+            hairPoints.forEach(p => {
+              debugCtx!.beginPath()
+              debugCtx!.arc(p.x, p.y, 8, 0, 2 * Math.PI)
+              debugCtx!.fill()
+              debugCtx!.stroke()
+            })
+            
+            // Draw eye sampling points (blue)
+            debugCtx.fillStyle = 'rgba(0, 0, 255, 0.6)'
+            debugCtx.strokeStyle = 'blue'
+            eyePoints.forEach(p => {
+              debugCtx!.beginPath()
+              debugCtx!.arc(p.x, p.y, 8, 0, 2 * Math.PI)
+              debugCtx!.fill()
+              debugCtx!.stroke()
+            })
+            
+            // Draw skin sampling points (green)
+            debugCtx.fillStyle = 'rgba(0, 255, 0, 0.6)'
+            debugCtx.strokeStyle = 'green'
+            skinPoints.forEach(p => {
+              debugCtx!.beginPath()
+              debugCtx!.arc(p.x, p.y, 8, 0, 2 * Math.PI)
+              debugCtx!.fill()
+              debugCtx!.stroke()
+            })
+            
+            // Draw labels
+            debugCtx.font = 'bold 20px Arial'
+            debugCtx.fillStyle = 'white'
+            debugCtx.strokeStyle = 'black'
+            debugCtx.lineWidth = 3
+            if (hairPoints.length > 0) {
+              const hairLabel = hairPoints[0]
+              debugCtx.strokeText('HAIR', hairLabel.x - 30, hairLabel.y - 15)
+              debugCtx.fillText('HAIR', hairLabel.x - 30, hairLabel.y - 15)
+            }
+            if (eyePoints.length > 0) {
+              const eyeLabel = eyePoints[0]
+              debugCtx.strokeText('EYES', eyeLabel.x - 30, eyeLabel.y - 15)
+              debugCtx.fillText('EYES', eyeLabel.x - 30, eyeLabel.y - 15)
+            }
+            if (skinPoints.length > 0) {
+              const skinLabel = skinPoints[0]
+              debugCtx.strokeText('SKIN', skinLabel.x - 30, skinLabel.y + 30)
+              debugCtx.fillText('SKIN', skinLabel.x - 30, skinLabel.y + 30)
+            }
           }
         }
       } catch (frameError) {
