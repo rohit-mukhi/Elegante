@@ -412,6 +412,8 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     console.log(`Lighting Assessment (Face Region): Score=${score}, Quality=${quality}`)
     console.log(`  Brightness=${avgBrightness.toFixed(1)}, Contrast=${stdDev.toFixed(1)}, ColorCast=${colorBalance.toFixed(1)}`)
     console.log(`  DarkPixels=${(darkPixelRatio*100).toFixed(1)}%, BrightPixels=${(brightPixelRatio*100).toFixed(1)}%`)
+    console.log(`  RGB Averages: R=${rAvg.toFixed(1)}, G=${gAvg.toFixed(1)}, B=${bAvg.toFixed(1)}`)
+    console.log(`  Face region: ${minX},${minY} to ${maxX},${maxY} (${count} pixels sampled)`)
     if (issues.length > 0) {
       console.log(`  Issues: ${issues.join(', ')}`)
     }
