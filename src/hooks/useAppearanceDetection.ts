@@ -298,6 +298,8 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     
     let rSum = 0, gSum = 0, bSum = 0, count = 0
     let brightnessValues: number[] = []
+    let darkPixels = 0
+    let brightPixels = 0
     
     // Sample only face region
     for (let y = minY; y < maxY; y += 3) {
@@ -312,6 +314,11 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         gSum += g
         bSum += b
         brightnessValues.push(brightness)
+        
+        // Count very dark and very bright pixels
+        if (brightness < 60) darkPixels++
+        if (brightness > 220) brightPixels++
+        
         count++
       }
     }
@@ -332,16 +339,30 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     // Calculate color cast (how balanced are RGB channels)
     const colorBalance = Math.max(Math.abs(rAvg - gAvg), Math.abs(gAvg - bAvg), Math.abs(rAvg - bAvg))
     
+    // Check for noise (sign of low light + camera gain)
+    const darkPixelRatio = darkPixels / count
+    const brightPixelRatio = brightPixels / count
+    
     const issues: string[] = []
     let score = 100
     
-    // Check brightness (ideal for face: 120-200)
-    if (avgBrightness < 80) {
+    // CRITICAL: Check for camera auto-exposure in dark room
+    // High contrast + many dark pixels = camera struggling in low light
+    if (darkPixelRatio > 0.15 && stdDev > 45) {
+      issues.push('Dark room - camera auto-adjusting')
+      score -= 35
+    } else if (darkPixelRatio > 0.10) {
+      issues.push('Insufficient ambient light')
+      score -= 25
+    }
+    
+    // Check brightness (ideal for face: 130-200)
+    if (avgBrightness < 90) {
       issues.push('Very dark - face barely visible')
       score -= 40
-    } else if (avgBrightness < 120) {
+    } else if (avgBrightness < 130) {
       issues.push('Too dark - need more light')
-      score -= 25
+      score -= 30
     } else if (avgBrightness > 220) {
       issues.push('Overexposed - too bright')
       score -= 35
@@ -350,41 +371,49 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
       score -= 15
     }
     
-    // Check contrast (ideal: 25-60 for face)
-    if (stdDev < 15) {
+    // Check contrast (ideal: 20-50 for face with good lighting)
+    if (stdDev < 12) {
       issues.push('Very flat lighting')
       score -= 25
-    } else if (stdDev < 20) {
+    } else if (stdDev < 18) {
       issues.push('Low contrast')
       score -= 15
-    } else if (stdDev > 70) {
+    } else if (stdDev > 65) {
       issues.push('Harsh shadows on face')
-      score -= 25
-    } else if (stdDev > 55) {
+      score -= 30
+    } else if (stdDev > 50) {
       issues.push('Uneven lighting')
+      score -= 20
+    }
+    
+    // Check color cast (ideal: < 12 for accurate skin tone)
+    if (colorBalance > 30) {
+      issues.push('Strong color tint (yellow/blue)')
+      score -= 30
+    } else if (colorBalance > 18) {
+      issues.push('Noticeable color tint')
       score -= 15
     }
     
-    // Check color cast (ideal: < 15 for accurate skin tone)
-    if (colorBalance > 35) {
-      issues.push('Strong color tint (yellow/blue)')
-      score -= 30
-    } else if (colorBalance > 20) {
-      issues.push('Noticeable color tint')
-      score -= 15
+    // Penalty for overexposed pixels (blown highlights)
+    if (brightPixelRatio > 0.05) {
+      issues.push('Blown highlights')
+      score -= 20
     }
     
     score = Math.max(0, Math.min(100, score))
     
     let quality: 'excellent' | 'good' | 'fair' | 'poor'
-    if (score >= 80) quality = 'excellent'
+    if (score >= 82) quality = 'excellent'
     else if (score >= 65) quality = 'good'
     else if (score >= 45) quality = 'fair'
     else quality = 'poor'
     
-    console.log(`Lighting Assessment (Face Region): Score=${score}, Quality=${quality}, Brightness=${avgBrightness.toFixed(1)}, Contrast=${stdDev.toFixed(1)}, ColorCast=${colorBalance.toFixed(1)}`)
+    console.log(`Lighting Assessment (Face Region): Score=${score}, Quality=${quality}`)
+    console.log(`  Brightness=${avgBrightness.toFixed(1)}, Contrast=${stdDev.toFixed(1)}, ColorCast=${colorBalance.toFixed(1)}`)
+    console.log(`  DarkPixels=${(darkPixelRatio*100).toFixed(1)}%, BrightPixels=${(brightPixelRatio*100).toFixed(1)}%`)
     if (issues.length > 0) {
-      console.log(`Lighting Issues: ${issues.join(', ')}`)
+      console.log(`  Issues: ${issues.join(', ')}`)
     }
     
     return { quality, score, issues }
@@ -677,7 +706,7 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
       // Calculate average lighting score
       if (lightingScores.length > 0) {
         lightingScore = Math.round(lightingScores.reduce((a, b) => a + b, 0) / lightingScores.length)
-        if (lightingScore >= 80) lightingQuality = 'excellent'
+        if (lightingScore >= 82) lightingQuality = 'excellent'
         else if (lightingScore >= 65) lightingQuality = 'good'
         else if (lightingScore >= 45) lightingQuality = 'fair'
         else lightingQuality = 'poor'
