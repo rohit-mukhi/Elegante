@@ -10,6 +10,8 @@ export interface AppearanceFeatures {
   hairColorHex: string
   eyeColorHex: string
   skinToneITA: number
+  lightingQuality: 'excellent' | 'good' | 'fair' | 'poor'
+  lightingScore: number // 0-100
 }
 
 interface ColorSample {
@@ -275,6 +277,90 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     } : null
   }
 
+  // Assess lighting quality based on image statistics
+  const assessLightingQuality = (imageData: ImageData): { quality: 'excellent' | 'good' | 'fair' | 'poor', score: number, issues: string[] } => {
+    const data = imageData.data
+    let rSum = 0, gSum = 0, bSum = 0, count = 0
+    let brightnessValues: number[] = []
+    
+    // Sample every 10th pixel for performance
+    for (let i = 0; i < data.length; i += 40) {
+      const r = data[i]
+      const g = data[i + 1]
+      const b = data[i + 2]
+      const brightness = (r + g + b) / 3
+      
+      rSum += r
+      gSum += g
+      bSum += b
+      brightnessValues.push(brightness)
+      count++
+    }
+    
+    const rAvg = rSum / count
+    const gAvg = gSum / count
+    const bAvg = bSum / count
+    const avgBrightness = (rAvg + gAvg + bAvg) / 3
+    
+    // Calculate standard deviation for contrast
+    const variance = brightnessValues.reduce((sum, val) => sum + Math.pow(val - avgBrightness, 2), 0) / count
+    const stdDev = Math.sqrt(variance)
+    
+    // Calculate color cast (how balanced are RGB channels)
+    const colorBalance = Math.max(Math.abs(rAvg - gAvg), Math.abs(gAvg - bAvg), Math.abs(rAvg - bAvg))
+    
+    const issues: string[] = []
+    let score = 100
+    
+    // Check brightness (ideal: 100-180)
+    if (avgBrightness < 60) {
+      issues.push('Too dark')
+      score -= 30
+    } else if (avgBrightness < 100) {
+      issues.push('Slightly dark')
+      score -= 15
+    } else if (avgBrightness > 200) {
+      issues.push('Too bright')
+      score -= 30
+    } else if (avgBrightness > 180) {
+      issues.push('Slightly bright')
+      score -= 15
+    }
+    
+    // Check contrast (ideal: 30-70)
+    if (stdDev < 20) {
+      issues.push('Low contrast')
+      score -= 20
+    } else if (stdDev > 80) {
+      issues.push('High contrast/shadows')
+      score -= 20
+    }
+    
+    // Check color cast (ideal: < 20)
+    if (colorBalance > 40) {
+      issues.push('Strong color cast')
+      score -= 25
+    } else if (colorBalance > 25) {
+      issues.push('Slight color cast')
+      score -= 10
+    }
+    
+    score = Math.max(0, Math.min(100, score))
+    
+    let quality: 'excellent' | 'good' | 'fair' | 'poor'
+    if (score >= 85) quality = 'excellent'
+    else if (score >= 70) quality = 'good'
+    else if (score >= 50) quality = 'fair'
+    else quality = 'poor'
+    
+    console.log(`Lighting Assessment: Score=${score}, Quality=${quality}, Brightness=${avgBrightness.toFixed(1)}, Contrast=${stdDev.toFixed(1)}, ColorCast=${colorBalance.toFixed(1)}`)
+    if (issues.length > 0) {
+      console.log(`Lighting Issues: ${issues.join(', ')}`)
+    }
+    
+    return { quality, score, issues }
+  }
+
   // White balance correction using gray world algorithm
   const normalizeWhiteBalance = (imageData: ImageData): ImageData => {
     const data = imageData.data
@@ -389,6 +475,7 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     const eyeSamples: ColorSample[] = []
     const skinSamples: ColorSample[] = []
     let bodyTypeResults: string[] = []
+    let lightingScores: number[] = []
 
     for (let frameIdx = 0; frameIdx < numFrames; frameIdx++) {
       setLoadingProgress({
@@ -407,6 +494,10 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
 
       ctx.drawImage(video, 0, 0)
       let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      
+      // Assess lighting quality for this frame
+      const lightingAssessment = assessLightingQuality(imageData)
+      lightingScores.push(lightingAssessment.score)
       
       // Apply white balance normalization
       imageData = normalizeWhiteBalance(imageData)
@@ -538,6 +629,18 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
       let skinToneITA = 0
       let underTone = 'Warm'
       let bodyType = 'Rectangle'
+      let lightingScore = 0
+      let lightingQuality: 'excellent' | 'good' | 'fair' | 'poor' = 'fair'
+
+      // Calculate average lighting score
+      if (lightingScores.length > 0) {
+        lightingScore = Math.round(lightingScores.reduce((a, b) => a + b, 0) / lightingScores.length)
+        if (lightingScore >= 85) lightingQuality = 'excellent'
+        else if (lightingScore >= 70) lightingQuality = 'good'
+        else if (lightingScore >= 50) lightingQuality = 'fair'
+        else lightingQuality = 'poor'
+        console.log(`Average Lighting Score: ${lightingScore} (${lightingQuality})`)
+      }
 
       if (hairSamples.length > 0) {
         const avgHair = averageFrames(hairSamples)
@@ -597,7 +700,9 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         bodyType,
         hairColorHex,
         eyeColorHex,
-        skinToneITA
+        skinToneITA,
+        lightingQuality,
+        lightingScore
       })
 
       setLoadingProgress({
