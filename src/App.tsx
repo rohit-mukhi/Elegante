@@ -5,6 +5,7 @@ import Landing from './pages/Landing'
 import Home from './pages/Home'
 import Mirror from './pages/Mirror'
 import Stylist from './pages/Stylist'
+import AddDress from './pages/AddDress'
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
             <Route path="/home" element={<Home />} />
             <Route path="/mirror" element={<Mirror />} />
             <Route path="/stylist" element={<Stylist />} />
+            <Route path="/add-dress" element={<AddDress />} />
           </Routes>
         </SearchProvider>
       </VoiceProvider>

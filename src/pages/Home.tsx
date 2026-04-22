@@ -167,6 +167,15 @@ export default function Home() {
             </button>
             <button
               onClick={() => {
+                navigate('/add-dress')
+                setIsMenuOpen(false)
+              }}
+              className="w-full text-left px-4 py-3 text-white hover:text-yellow-400 transition rounded-lg hover:bg-purple-900/50"
+            >
+              ➕ Add Dress
+            </button>
+            <button
+              onClick={() => {
                 setIsMenuOpen(false)
                 navigate('/')
               }}

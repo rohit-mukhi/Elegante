@@ -154,6 +154,15 @@ export default function Mirror() {
               </button>
               <button
                 onClick={() => {
+                  navigate('/add-dress')
+                  setMenuOpen(false)
+                }}
+                className="w-full mb-2 rounded-full border border-violet-500/70 bg-black/20 px-4 py-2 text-xs font-medium uppercase tracking-wide text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400"
+              >
+                Add Dress
+              </button>
+              <button
+                onClick={() => {
                   navigate('/')
                   setMenuOpen(false)
                 }}
