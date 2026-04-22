@@ -204,15 +204,66 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     return (Math.atan((L - 50) / b) * 180) / Math.PI
   }
 
-  const classifySkinTone = (ita: number) => {
-    // Adjusted thresholds - more conservative classification
-    // Accounts for typical indoor lighting making skin appear lighter
-    if (ita > 58) return 'Very Fair'  // Increased from 55 (stricter)
-    if (ita > 44) return 'Fair'       // Increased from 41 (stricter)
-    if (ita > 31) return 'Medium'     // Increased from 28 (stricter)
-    if (ita > 22) return 'Olive'      // Increased from 19 (stricter)
-    if (ita > 13) return 'Brown'      // Increased from 10 (stricter)
-    return 'Very Dark'                 // < 13
+  // Normalize brightness based on lighting conditions
+  const normalizeBrightness = (
+    r: number, 
+    g: number, 
+    b: number, 
+    avgBrightness: number
+  ): { r: number; g: number; b: number } => {
+    // Target brightness for optimal skin tone detection (well-lit indoor conditions)
+    const targetBrightness = 160
+    
+    // Calculate correction factor
+    // If too dark (avgBrightness < 130), boost the values
+    // If too bright (avgBrightness > 190), reduce the values
+    const correctionFactor = targetBrightness / avgBrightness
+    
+    // Apply correction with limits to avoid over-correction
+    const minFactor = 0.7  // Don't darken more than 30%
+    const maxFactor = 1.8  // Don't brighten more than 80%
+    const limitedFactor = Math.max(minFactor, Math.min(maxFactor, correctionFactor))
+    
+    return {
+      r: Math.min(255, Math.max(0, r * limitedFactor)),
+      g: Math.min(255, Math.max(0, g * limitedFactor)),
+      b: Math.min(255, Math.max(0, b * limitedFactor))
+    }
+  }
+
+  const classifySkinTone = (ita: number, avgBrightness: number) => {
+    // Adaptive ITA thresholds based on lighting conditions
+    // In low light (avgBrightness < 130): skin appears darker, so lower thresholds
+    // In bright light (avgBrightness > 190): skin appears lighter, so raise thresholds
+    
+    let adjustment = 0
+    
+    if (avgBrightness < 100) {
+      // Very dark lighting - skin appears much darker
+      adjustment = -8
+    } else if (avgBrightness < 130) {
+      // Dark lighting - skin appears darker
+      adjustment = -5
+    } else if (avgBrightness > 210) {
+      // Very bright lighting - skin appears much lighter
+      adjustment = +8
+    } else if (avgBrightness > 190) {
+      // Bright lighting - skin appears lighter
+      adjustment = +5
+    }
+    // Normal lighting (130-190): no adjustment needed
+    
+    const adjustedITA = ita + adjustment
+    
+    console.log(`ITA Adjustment: Original=${ita.toFixed(2)}, Adjusted=${adjustedITA.toFixed(2)} (brightness=${avgBrightness.toFixed(1)}, adjustment=${adjustment})`)
+    
+    // Calibrated thresholds for better accuracy
+    if (adjustedITA > 55) return 'Very Fair'
+    if (adjustedITA > 41) return 'Fair'
+    if (adjustedITA > 28) return 'Medium'
+    if (adjustedITA > 19) return 'Olive'
+    if (adjustedITA > 10) return 'Brown'
+    return 'Very Dark'
   }
 
   const classifyHairColor = (hex: string): string => {
@@ -793,16 +844,24 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         const avgSkin = averageFrames(skinSamples)
         console.log(`Skin RGB (averaged): R=${avgSkin.r}, G=${avgSkin.g}, B=${avgSkin.b}`)
         
-        const lab = rgbToLab(avgSkin.r, avgSkin.g, avgSkin.b)
+        // Calculate average brightness from face region for normalization
+        const faceBrightness = (avgSkin.r + avgSkin.g + avgSkin.b) / 3
+        console.log(`Face brightness (before normalization): ${faceBrightness.toFixed(1)}`)
+        
+        // Apply brightness normalization
+        const normalizedSkin = normalizeBrightness(avgSkin.r, avgSkin.g, avgSkin.b, faceBrightness)
+        console.log(`Skin RGB (normalized): R=${normalizedSkin.r.toFixed(1)}, G=${normalizedSkin.g.toFixed(1)}, B=${normalizedSkin.b.toFixed(1)}`)
+        
+        const lab = rgbToLab(normalizedSkin.r, normalizedSkin.g, normalizedSkin.b)
         skinToneITA = calculateITA(lab.L, lab.b)
         
         console.log(`LAB values: L=${lab.L.toFixed(2)}, a=${lab.a.toFixed(2)}, b=${lab.b.toFixed(2)}`)
         console.log(`ITA value: ${skinToneITA.toFixed(2)}`)
         
-        skinTone = classifySkinTone(skinToneITA)
+        skinTone = classifySkinTone(skinToneITA, faceBrightness)
         console.log(`Classified skin tone: ${skinTone}`)
         
-        underTone = determineUndertone(avgSkin.r, avgSkin.g, avgSkin.b)
+        underTone = determineUndertone(normalizedSkin.r, normalizedSkin.g, normalizedSkin.b)
         console.log(`Undertone: ${underTone}`)
       }
 
