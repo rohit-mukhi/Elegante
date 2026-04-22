@@ -632,8 +632,8 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
             if (landmarks[idx]) {
               const x = landmarks[idx].x * canvas.width
               const y = landmarks[idx].y * canvas.height
-              // Sample 30-50 pixels ABOVE forehead to get actual hair
-              const hairY = y - 40
+              // Sample 45 pixels ABOVE forehead to get actual hair
+              const hairY = y - 45
               if (hairY >= 0) {
                 hairPoints.push({ x, y: hairY })
               }
@@ -663,8 +663,8 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
             eyeSamples.push(eyeSample)
           }
 
-          // IMPROVED SKIN SAMPLING: Always use cheek area (most reliable)
-          const cheekPoints = [205, 425, 206, 426, 207, 427, 187, 411, 192, 416]
+          // IMPROVED SKIN SAMPLING: Use upper cheek area closer to nose (lighter, more accurate)
+          const cheekPoints = [36, 266, 203, 423, 50, 280, 101, 330, 117, 346]
           const skinPoints: Array<{ x: number; y: number }> = []
           
           cheekPoints.forEach(idx => {
@@ -676,7 +676,7 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
             }
           })
           
-          const skinSample = samplePixelsWithMedian(imageData, skinPoints, 6)
+          const skinSample = samplePixelsWithMedian(imageData, skinPoints, 4)
           if (skinSample) {
             skinSamples.push(skinSample)
           }
