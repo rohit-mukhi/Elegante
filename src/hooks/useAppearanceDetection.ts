@@ -204,33 +204,6 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     return (Math.atan((L - 50) / b) * 180) / Math.PI
   }
 
-  // Normalize brightness based on lighting conditions
-  const normalizeBrightness = (
-    r: number, 
-    g: number, 
-    b: number, 
-    avgBrightness: number
-  ): { r: number; g: number; b: number } => {
-    // Target brightness for optimal skin tone detection (well-lit indoor conditions)
-    const targetBrightness = 160
-    
-    // Calculate correction factor
-    // If too dark (avgBrightness < 130), boost the values
-    // If too bright (avgBrightness > 190), reduce the values
-    const correctionFactor = targetBrightness / avgBrightness
-    
-    // Apply correction with limits to avoid over-correction
-    const minFactor = 0.7  // Don't darken more than 30%
-    const maxFactor = 1.8  // Don't brighten more than 80%
-    const limitedFactor = Math.max(minFactor, Math.min(maxFactor, correctionFactor))
-    
-    return {
-      r: Math.min(255, Math.max(0, r * limitedFactor)),
-      g: Math.min(255, Math.max(0, g * limitedFactor)),
-      b: Math.min(255, Math.max(0, b * limitedFactor))
-    }
-  }
-
   const classifySkinTone = (ita: number, avgBrightness: number) => {
     // Adaptive ITA thresholds based on lighting conditions
     // In low light (avgBrightness < 130): skin appears darker, so lower thresholds
