@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppearanceDetection } from '../hooks/useAppearanceDetection'
-import { useColorRecommendation } from '../hooks/useColorRecommendation'
+// TODO: CNN - Will be used later with better dataset
+// import { useColorRecommendation } from '../hooks/useColorRecommendation'
+import { useBackendRecommendation } from '../hooks/useBackendRecommendation'
 import { getColorRgba, expandColors } from '../utils/colorPalette'
 import { VoiceNavigation } from '../components/VoiceNavigation'
 import { VoiceIndicator } from '../components/VoiceIndicator'
@@ -16,7 +18,9 @@ export default function Stylist() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const { isLoading, isAnalyzing, features, loadingProgress, analyzeFeatures, dispose: disposeAppearance } = useAppearanceDetection(videoRef)
-  const { getRecommendations, isModelLoading, isRecommending, colorProgress } = useColorRecommendation()
+  // TODO: CNN - Will be used later with better dataset
+  // const { getRecommendations, isModelLoading, isRecommending, colorProgress } = useColorRecommendation()
+  const { getRecommendations, loading: isRecommending, error: backendError } = useBackendRecommendation()
   const [colorRecommendations, setColorRecommendations] = useState<string[] | null>(null)
   // const [debugInfo, setDebugInfo] = useState<string>('') // Disabled for production
   const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
@@ -82,56 +86,53 @@ export default function Stylist() {
 
     console.log('✅ Features detected:', features)
 
-    // Determine torso length based on measurements
-    const torsoLength = 'Balanced' // Default, could be calculated from pose data
-
-    console.log('📞 Calling getRecommendations with:', {
-      hairColor: features.hairColor,
-      eyeColor: features.eyeColor,
-      skinTone: features.skinTone,
-      underTone: features.underTone,
-      torsoLength,
-      bodyType: features.bodyType
-    })
-
     // Show loading state
     setColorRecommendations(null)
 
     try {
-      const recommendations = await getRecommendations(
-        features.hairColor,
-        features.eyeColor,
-        features.skinTone,
-        features.underTone,
-        torsoLength,
-        features.bodyType
-      )
+      // Call backend API with features
+      const colors = await getRecommendations({
+        hairColor: features.hairColor,
+        eyeColor: features.eyeColor,
+        skinTone: features.skinTone,
+        underTone: features.underTone,
+        bodyType: features.bodyType
+      })
 
-      console.log('📦 Recommendations received:', recommendations)
+      console.log('🎨 Colors received from backend:', colors)
 
-      if (recommendations) {
-        console.log('🎨 Top colors from model:', recommendations.topColors)
-        
-        // Expand base colors into specific shades with randomization
-        const expandedColors = expandColors(recommendations.topColors, 6)
-        console.log('🌈 Expanded colors:', expandedColors)
-        
-        if (expandedColors && expandedColors.length > 0) {
-          setColorRecommendations(expandedColors)
-          console.log('✅ Color recommendations set successfully!')
-          console.log('State updated with:', expandedColors)
-        } else {
-          console.error('❌ Expanded colors is empty or null')
-          alert('Color expansion failed. Please try again.')
-        }
+      if (colors && colors.length > 0) {
+        setColorRecommendations(colors)
+        console.log('✅ Color recommendations set successfully!')
       } else {
-        console.error('❌ No recommendations returned from model')
+        console.error('❌ No colors returned from backend')
         alert('Failed to generate color recommendations. Please try again.')
       }
     } catch (error) {
       console.error('❌ Error in handleGetRecommendations:', error)
       alert(`Error generating colors: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+
+    // TODO: CNN - Will be used later with better dataset
+    // const torsoLength = 'Balanced' // Default, could be calculated from pose data
+    // try {
+    //   const recommendations = await getRecommendations(
+    //     features.hairColor,
+    //     features.eyeColor,
+    //     features.skinTone,
+    //     features.underTone,
+    //     torsoLength,
+    //     features.bodyType
+    //   )
+    //   if (recommendations) {
+    //     const expandedColors = expandColors(recommendations.topColors, 6)
+    //     if (expandedColors && expandedColors.length > 0) {
+    //       setColorRecommendations(expandedColors)
+    //     }
+    //   }
+    // } catch (error) {
+    //   console.error('❌ Error with CNN model:', error)
+    // }
   }
 
   return (
@@ -362,43 +363,28 @@ export default function Stylist() {
                 </div>
               )} */}
               
-              {/* Color Model Loading */}
-              {isModelLoading && colorProgress.stage !== 'idle' && (
+              {/* Backend Loading */}
+              {isRecommending && (
                 <div className="mb-4">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent"></div>
-                    <p className="text-xs text-violet-50/70">{colorProgress.message}</p>
-                  </div>
-                  <div className="w-full bg-black/50 rounded-full h-1.5 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-yellow-400 to-purple-600 transition-all duration-300"
-                      style={{ width: `${colorProgress.progress}%` }}
-                    ></div>
+                    <p className="text-xs text-violet-50/70">Getting color recommendations from AI...</p>
                   </div>
                 </div>
               )}
               
-              {/* Color Generation Progress */}
-              {isRecommending && colorProgress.stage !== 'idle' && (
-                <div className="mb-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent"></div>
-                    <p className="text-xs text-violet-50/70">{colorProgress.message}</p>
-                  </div>
-                  <div className="w-full bg-black/50 rounded-full h-1.5 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-yellow-400 to-purple-600 transition-all duration-300"
-                      style={{ width: `${colorProgress.progress}%` }}
-                    ></div>
-                  </div>
+              {/* Backend Error */}
+              {backendError && (
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                  <p className="text-xs text-red-400">❌ {backendError}</p>
                 </div>
               )}
               
-              {!isModelLoading && !isRecommending && !colorRecommendations && (
+              {!isRecommending && !colorRecommendations && (
                 <p className="text-xs text-violet-50/50 mb-4">Analyze your features first to see recommendations</p>
               )}
               
-              {!isModelLoading && !isRecommending && colorRecommendations && colorRecommendations.length > 0 && (
+              {!isRecommending && colorRecommendations && colorRecommendations.length > 0 && (
                 <div className="space-y-3">
                   {colorRecommendations.map((color, index) => (
                     <div
