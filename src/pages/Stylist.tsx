@@ -341,39 +341,6 @@ export default function Stylist() {
               )}
               {cameraActive && features && (
                 <div className="space-y-3">
-                  {/* Lighting Quality Indicator */}
-                  <div className={`flex justify-between items-center rounded-lg p-3 ${
-                    features.lightingQuality === 'excellent' ? 'bg-green-500/20 border border-green-500/50' :
-                    features.lightingQuality === 'good' ? 'bg-blue-500/20 border border-blue-500/50' :
-                    features.lightingQuality === 'fair' ? 'bg-yellow-500/20 border border-yellow-500/50' :
-                    'bg-red-500/20 border border-red-500/50'
-                  }`}>
-                    <span className="text-sm text-violet-50/70">Lighting Quality</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs font-medium ${
-                        features.lightingQuality === 'excellent' ? 'text-green-400' :
-                        features.lightingQuality === 'good' ? 'text-blue-400' :
-                        features.lightingQuality === 'fair' ? 'text-yellow-400' :
-                        'text-red-400'
-                      }`}>
-                        {features.lightingQuality === 'excellent' ? '✓ Excellent' :
-                         features.lightingQuality === 'good' ? '✓ Good' :
-                         features.lightingQuality === 'fair' ? '⚠ Fair' :
-                         '✗ Poor'}
-                      </span>
-                      <span className="text-xs text-violet-50/50">({features.lightingScore}%)</span>
-                    </div>
-                  </div>
-                  {features.lightingQuality === 'poor' && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                      <p className="text-xs text-red-400">⚠️ Poor lighting detected. Try facing a window or improving room lighting for better accuracy.</p>
-                    </div>
-                  )}
-                  {features.lightingQuality === 'fair' && (
-                    <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                      <p className="text-xs text-yellow-400">💡 Lighting is acceptable but could be improved for more accurate results.</p>
-                    </div>
-                  )}
                   <div className="flex justify-between rounded-lg bg-black/30 p-3">
                     <span className="text-sm text-violet-50/70">Hair Color</span>
                     <div className="flex items-center gap-2">
