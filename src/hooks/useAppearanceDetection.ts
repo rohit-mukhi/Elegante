@@ -230,12 +230,12 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     
     console.log(`ITA Adjustment: Original=${ita.toFixed(2)}, Adjusted=${adjustedITA.toFixed(2)} (brightness=${avgBrightness.toFixed(1)}, adjustment=${adjustment})`)
     
-    // Stricter thresholds - harder to be classified as Very Fair or Fair
-    if (adjustedITA > 65) return 'Very Fair'  // Much stricter (was 55)
-    if (adjustedITA > 50) return 'Fair'       // Much stricter (was 41)
-    if (adjustedITA > 35) return 'Medium'     // Stricter (was 28)
-    if (adjustedITA > 22) return 'Olive'      // Slightly stricter (was 19)
-    if (adjustedITA > 12) return 'Brown'      // Slightly stricter (was 10)
+    // Very strict thresholds - compensate for lighting variations
+    if (adjustedITA > 75) return 'Very Fair'  // Extremely strict (was 65)
+    if (adjustedITA > 58) return 'Fair'       // Extremely strict (was 50)
+    if (adjustedITA > 40) return 'Medium'     // Stricter (was 35)
+    if (adjustedITA > 25) return 'Olive'      // Stricter (was 22)
+    if (adjustedITA > 14) return 'Brown'      // Stricter (was 12)
     return 'Very Dark'
   }
 
