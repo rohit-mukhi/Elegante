@@ -4,8 +4,8 @@ import { useAppearanceDetection } from '../hooks/useAppearanceDetection'
 // TODO: CNN - Will be used later with better dataset
 // import { useColorRecommendation } from '../hooks/useColorRecommendation'
 import { useBackendRecommendation } from '../hooks/useBackendRecommendation'
-import { getColorRgba } from '../utils/colorPalette'
 // TODO: CNN - Will be used later with better dataset
+// import { getColorRgba } from '../utils/colorPalette'
 // import { expandColors } from '../utils/colorPalette'
 import { VoiceNavigation } from '../components/VoiceNavigation'
 import { VoiceIndicator } from '../components/VoiceIndicator'
@@ -23,7 +23,7 @@ export default function Stylist() {
   // TODO: CNN - Will be used later with better dataset
   // const { getRecommendations, isModelLoading, isRecommending, colorProgress } = useColorRecommendation()
   const { getRecommendations, loading: isRecommending, error: backendError } = useBackendRecommendation()
-  const [colorRecommendations, setColorRecommendations] = useState<string[] | null>(null)
+  const [colorRecommendations, setColorRecommendations] = useState<Array<{name: string, hex: string}> | null>(null)
   // const [debugInfo, setDebugInfo] = useState<string>('') // Disabled for production
   const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
 
@@ -396,9 +396,9 @@ export default function Stylist() {
                     >
                       <div 
                         className="h-10 w-10 rounded-lg border border-violet-500/50 flex-shrink-0"
-                        style={{ backgroundColor: getColorRgba(color) }}
+                        style={{ backgroundColor: color.hex }}
                       />
-                      <span className="text-sm font-medium text-yellow-400">{color}</span>
+                      <span className="text-sm font-medium text-yellow-400">{color.name}</span>
                     </div>
                   ))}
                 </div>

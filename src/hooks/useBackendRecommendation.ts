@@ -8,9 +8,14 @@ interface BackendRecommendationInput {
   bodyType?: string;
 }
 
+interface ColorRecommendation {
+  name: string;
+  hex: string;
+}
+
 interface BackendRecommendationResponse {
   success: boolean;
-  colors: string[];
+  colors: ColorRecommendation[];
   features: {
     hairColor: string;
     eyeColor: string;
@@ -26,7 +31,7 @@ export const useBackendRecommendation = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getRecommendations = async (features: BackendRecommendationInput): Promise<string[]> => {
+  const getRecommendations = async (features: BackendRecommendationInput): Promise<ColorRecommendation[]> => {
     setLoading(true);
     setError(null);
 
