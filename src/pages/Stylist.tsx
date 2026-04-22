@@ -18,7 +18,6 @@ export default function Stylist() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [cameraActive, setCameraActive] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const { isLoading, isAnalyzing, features, loadingProgress, analyzeFeatures, dispose: disposeAppearance } = useAppearanceDetection(videoRef)
   // TODO: CNN - Will be used later with better dataset
@@ -251,11 +250,6 @@ export default function Stylist() {
                 style={{ transform: 'scaleX(-1)', display: cameraActive ? 'block' : 'none' }}
                 className="absolute inset-0 h-full w-full object-cover"
               />
-              <canvas
-                ref={canvasRef}
-                style={{ transform: 'scaleX(-1)', display: cameraActive ? 'block' : 'none' }}
-                className="absolute inset-0 h-full w-full object-cover pointer-events-none z-10"
-              />
               {(isLoading || isAnalyzing) && cameraActive && (
                 <div className="absolute inset-0 flex h-full flex-col items-center justify-center gap-4 bg-black/70 backdrop-blur-sm z-10">
                   <div className="flex h-16 w-16 items-center justify-center">
@@ -293,13 +287,7 @@ export default function Stylist() {
             {cameraActive && (
               <div className="mt-3 flex gap-2 sm:mt-4 sm:gap-3">
                 <button
-                  onClick={() => {
-                    if (canvasRef.current && videoRef.current) {
-                      canvasRef.current.width = videoRef.current.videoWidth
-                      canvasRef.current.height = videoRef.current.videoHeight
-                    }
-                    analyzeFeatures(canvasRef.current || undefined)
-                  }}
+                  onClick={analyzeFeatures}
                   disabled={isLoading || isAnalyzing || isRecommending}
                   className="flex-1 rounded-full border border-violet-500/70 bg-black/20 px-3 py-2 text-xs font-medium text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed sm:px-4 sm:text-sm flex items-center justify-center gap-2"
                 >
