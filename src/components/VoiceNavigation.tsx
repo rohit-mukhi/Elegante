@@ -1,11 +1,12 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useVoice } from '../contexts/VoiceContext'
+import { useSearch } from '../contexts/SearchContext'
 import { useIntentDetection } from '../hooks/useIntentDetection'
+import { useFashionSearch } from '../hooks/useFashionSearch'
 
 interface VoiceNavigationProps {
   isEnabled: boolean
-  onCategoryChange?: (category: string) => void
   onCameraStart?: () => void
   onCameraStop?: () => void
   onAnalyze?: () => void
@@ -13,7 +14,6 @@ interface VoiceNavigationProps {
 
 export function VoiceNavigation({ 
   isEnabled,
-  // onCategoryChange, // Not used with MiniLM intent detection
   onCameraStart,
   onCameraStop,
   onAnalyze
@@ -21,7 +21,9 @@ export function VoiceNavigation({
   const navigate = useNavigate()
   const location = useLocation()
   const { transcript, clearTranscript } = useVoice()
-  const { initialize, detectIntent, isLoading, progress } = useIntentDetection()
+  const { setSearchResults, setIsSearching, searchResults, selectedDress, setSelectedDress, setShowNoResults } = useSearch()
+  const { initialize, detectIntent, generateEmbedding, isLoading, progress } = useIntentDetection()
+  const { search } = useFashionSearch()
   const lastProcessedRef = useRef('')
   const isInitializingRef = useRef(false)
 
@@ -46,7 +48,18 @@ export function VoiceNavigation({
     }
   }, [])
 
-  const executeIntent = useCallback((intent: string, confidence: number) => {
+  const extractSearchQuery = useCallback((transcript: string): string => {
+    const commandWords = ['show me', 'find', 'search', 'look for', 'get me', 'i want', 'i need']
+    let query = transcript.toLowerCase()
+    
+    for (const cmd of commandWords) {
+      query = query.replace(cmd, '')
+    }
+    
+    return query.trim()
+  }, [])
+
+  const executeIntent = useCallback((intent: string, confidence: number, transcript: string) => {
     console.log(`🎯 Executing intent: ${intent} (confidence: ${confidence.toFixed(2)})`)
 
     switch (intent) {
@@ -95,10 +108,78 @@ export function VoiceNavigation({
         break
       
       case 'search_outfit':
-        // TODO: Extract keywords and send to backend
-        console.log('🔍 Search outfit intent detected - backend integration needed')
-        speak('Outfit search coming soon')
+        const searchQuery = extractSearchQuery(transcript)
+        console.log('🔍 Original transcript:', transcript)
+        console.log('🔍 Extracted search query:', searchQuery)
+        
+        setIsSearching(true)
+        setShowNoResults(false)
+        speak('Searching for dresses')
+        
+        generateEmbedding(searchQuery).then(async (embedding) => {
+          if (embedding) {
+            console.log('🔍 Generated embedding, searching...')
+            const result = await search(embedding)
+            setIsSearching(false)
+            
+            if (result.success && result.items.length > 0) {
+              console.log(`✅ Found ${result.items.length} items`)
+              setSearchResults(result.items)
+              speak(`Found ${result.items.length} dresses`)
+              navigate('/mirror')
+            } else {
+              console.log('❌ No items found')
+              setShowNoResults(true)
+              speak('No dresses found')
+            }
+          } else {
+            setIsSearching(false)
+            setShowNoResults(true)
+            speak('Failed to search')
+          }
+        })
         return true
+      
+      case 'try_dress':
+        if (location.pathname === '/mirror' && searchResults.length > 0) {
+          const dressName = transcript.toLowerCase()
+          const foundDress = searchResults.find(dress => 
+            dressName.includes(dress.name.toLowerCase())
+          )
+          
+          if (foundDress) {
+            setSelectedDress(foundDress)
+            speak(`Trying ${foundDress.name}`)
+            return true
+          } else {
+            speak('Dress not found')
+          }
+        }
+        break
+      
+      case 'next_dress':
+        if (location.pathname === '/mirror' && searchResults.length > 0) {
+          const currentIndex = selectedDress 
+            ? searchResults.findIndex(d => d._id === selectedDress._id)
+            : -1
+          const nextIndex = (currentIndex + 1) % searchResults.length
+          setSelectedDress(searchResults[nextIndex])
+          speak(`Showing ${searchResults[nextIndex].name}`)
+          return true
+        }
+        break
+      
+      case 'previous_dress':
+        if (location.pathname === '/mirror' && searchResults.length > 0) {
+          const currentIndex = selectedDress 
+            ? searchResults.findIndex(d => d._id === selectedDress._id)
+            : -1
+          const prevIndex = currentIndex <= 0 ? searchResults.length - 1 : currentIndex - 1
+          setSelectedDress(searchResults[prevIndex])
+          speak(`Showing ${searchResults[prevIndex].name}`)
+          return true
+        }
+        break
       
       default:
         console.log('❓ Unknown intent:', intent)
@@ -106,18 +187,16 @@ export function VoiceNavigation({
     }
 
     return false
-  }, [navigate, location, onCameraStart, onCameraStop, onAnalyze, speak])
+  }, [navigate, location, onCameraStart, onCameraStop, onAnalyze, speak, extractSearchQuery, generateEmbedding, search, setSearchResults, setIsSearching, searchResults, selectedDress, setSelectedDress, setShowNoResults, transcript])
 
   const processCommand = useCallback(async (text: string) => {
     console.log('🎤 Voice input:', text)
 
-    // Show loading state if model is still loading
     if (isLoading) {
       console.log('⏳ Model still loading...', progress.message)
       return false
     }
 
-    // Detect intent using MiniLM
     const result = await detectIntent(text.toLowerCase().trim())
     
     if (!result) {
@@ -128,19 +207,16 @@ export function VoiceNavigation({
 
     console.log(`✅ Intent detected: ${result.intent} (${(result.confidence * 100).toFixed(0)}% confident)`)
     
-    // Execute the detected intent
-    return executeIntent(result.intent, result.confidence)
+    return executeIntent(result.intent, result.confidence, text)
   }, [detectIntent, executeIntent, isLoading, progress, speak])
 
   useEffect(() => {
     if (!isEnabled || !transcript || transcript.length < 3) return
     
-    // Prevent duplicate processing
     if (transcript === lastProcessedRef.current) return
     
     lastProcessedRef.current = transcript
     
-    // Process command asynchronously
     processCommand(transcript).then((processed) => {
       if (processed) {
         console.log('✅ Command executed successfully')
@@ -149,7 +225,6 @@ export function VoiceNavigation({
       }
     })
     
-    // Clear after processing (with delay for intent detection)
     setTimeout(() => clearTranscript(), 1500)
   }, [transcript, isEnabled, processCommand, clearTranscript])
 

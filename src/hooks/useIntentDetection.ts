@@ -34,6 +34,21 @@ export function useIntentDetection() {
     search_outfit: "show me dress find outfit search clothes wedding party formal casual"
   }
 
+  // Define your intents with example phrases
+  const intents = {
+    back: "navigate to previous page go back return",
+    home: "go to home page main page homepage",
+    open_mirror: "open virtual mirror try on clothes show mirror",
+    open_stylist: "open stylist page color analysis style analysis",
+    start_camera: "start camera turn on camera activate camera",
+    stop_camera: "stop camera turn off camera deactivate camera",
+    analyze: "analyze my features scan appearance detect colors what colors suit me",
+    search_outfit: "show me dress find outfit search clothes wedding party formal casual",
+    try_dress: "try dress wear put on select choose",
+    next_dress: "next dress show next move forward",
+    previous_dress: "previous dress go back show previous"
+  }
+
   const initialize = useCallback(async () => {
     if (isInitializedRef.current) {
       return true
@@ -190,6 +205,24 @@ export function useIntentDetection() {
     }
   }, [intents])
 
+  const generateEmbedding = useCallback(async (text: string): Promise<number[] | null> => {
+    if (!pipelineRef.current) {
+      console.error('Model not initialized')
+      return null
+    }
+
+    try {
+      const embedding = await pipelineRef.current(text, {
+        pooling: 'mean',
+        normalize: true
+      })
+      return Array.from(embedding.data)
+    } catch (error) {
+      console.error('Error generating embedding:', error)
+      return null
+    }
+  }, [])
+
   const dispose = useCallback(() => {
     console.log('Disposing MiniLM model...')
     pipelineRef.current = null
@@ -202,6 +235,7 @@ export function useIntentDetection() {
     progress,
     initialize,
     detectIntent,
+    generateEmbedding,
     dispose
   }
 }

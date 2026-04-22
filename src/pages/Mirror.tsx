@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useMediaPipePose } from '../hooks/useMediaPipePose'
 import { VoiceNavigation } from '../components/VoiceNavigation'
 import { VoiceIndicator } from '../components/VoiceIndicator'
+import { LoadingModal } from '../components/LoadingModal'
+import { NoResultsModal } from '../components/NoResultsModal'
+import { DressCard } from '../components/DressCard'
 import { useVoice } from '../contexts/VoiceContext'
+import { useSearch } from '../contexts/SearchContext'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
@@ -14,9 +18,9 @@ export default function Mirror() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const [selectedOutfit, setSelectedOutfit] = useState<string | null>(null)
   const { isLoading: poseLoading, measurements, startDetection, stopDetection, dispose: disposePose } = useMediaPipePose(videoRef)
   const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
+  const { searchResults, selectedDress, setSelectedDress, isSearching, showNoResults, setShowNoResults } = useSearch()
 
   const outfits = [
     { name: 'Classic Shirt', icon: '👔', color: 'Blue' },
@@ -24,6 +28,13 @@ export default function Mirror() {
     { name: 'Casual Tee', icon: '👕', color: 'White' },
     { name: 'Formal Blazer', icon: '🎩', color: 'Black' }
   ]
+
+  const handleDressSelect = (dress: typeof searchResults[0]) => {
+    setSelectedDress(dress)
+    console.log('Selected dress:', dress.name)
+    console.log('3D Model URL:', dress.cloudinaryUrl)
+    // TODO: Load 3D model from dress.cloudinaryUrl
+  }
 
   const startCamera = async () => {
     try {
@@ -80,6 +91,12 @@ export default function Mirror() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-950 via-violet-950 to-purple-900 text-zinc-50">
+      {/* Loading Modal */}
+      <LoadingModal isOpen={isSearching} message="Searching for dresses..." />
+      
+      {/* No Results Modal */}
+      <NoResultsModal isOpen={showNoResults} onClose={() => setShowNoResults(false)} />
+      
       {/* Voice Navigation */}
       <VoiceNavigation 
         isEnabled={isVoiceEnabled}
@@ -256,32 +273,44 @@ export default function Mirror() {
 
             {/* Product Selection */}
             <div data-aos="fade-up" data-aos-delay="200" className="rounded-2xl border border-violet-900/50 bg-black/35 p-6 backdrop-blur-md">
-              <h3 className="mb-4 text-lg font-semibold text-violet-50">Select Outfit</h3>
-              <div className="space-y-3">
-                {outfits.map((item) => (
-                  <button
-                    key={item.name}
-                    onClick={() => setSelectedOutfit(item.name)}
-                    className={`w-full rounded-xl border p-4 text-left transition ${
-                      selectedOutfit === item.name
-                        ? 'border-yellow-400 bg-yellow-400/10'
-                        : 'border-violet-900/50 bg-black/20 hover:border-yellow-400/50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-purple-900 to-purple-950 flex items-center justify-center text-3xl">
-                        {item.icon}
+              <h3 className="mb-4 text-lg font-semibold text-violet-50">
+                {searchResults.length > 0 ? 'Search Results' : 'Select Outfit'}
+              </h3>
+              
+              {searchResults.length > 0 ? (
+                <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                  {searchResults.map((dress) => (
+                    <DressCard
+                      key={dress._id}
+                      dress={dress}
+                      isSelected={selectedDress?._id === dress._id}
+                      onClick={() => handleDressSelect(dress)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {outfits.map((item) => (
+                    <button
+                      key={item.name}
+                      className="w-full rounded-xl border border-violet-900/50 bg-black/20 p-4 text-left transition hover:border-yellow-400/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-purple-900 to-purple-950 flex items-center justify-center text-3xl">
+                          {item.icon}
+                        </div>
+                        <div>
+                          <p className="font-medium text-violet-50">{item.name}</p>
+                          <p className="text-xs text-violet-50/60">Tap to try on</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-violet-50">{item.name}</p>
-                        <p className="text-xs text-violet-50/60">
-                          {selectedOutfit === item.name ? 'Active' : 'Tap to try on'}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                    </button>
+                  ))}
+                  <p className="text-xs text-violet-50/50 text-center mt-4">
+                    Use voice: "Show me a dress for wedding"
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Cast to TV */}
