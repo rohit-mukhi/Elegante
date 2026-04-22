@@ -552,26 +552,6 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
 
     setIsAnalyzing(true)
     
-    // Get camera exposure metadata if available
-    let exposureTime: number | undefined
-    let exposureCompensation: number | undefined
-    
-    if (videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream
-      const videoTrack = stream.getVideoTracks()[0]
-      const settings = videoTrack.getSettings()
-      
-      exposureTime = settings.exposureTime
-      exposureCompensation = settings.exposureCompensation
-      
-      if (exposureTime !== undefined) {
-        console.log(`📸 Camera exposure time: ${exposureTime}μs`)
-      }
-      if (exposureCompensation !== undefined) {
-        console.log(`📸 Camera exposure compensation: ${exposureCompensation}`)
-      }
-    }
-    
     // Multi-frame capture for averaging
     const numFrames = 5
     const frameDelay = 200 // ms between frames
@@ -844,36 +824,41 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
           ? faceRegionBrightness.reduce((a, b) => a + b, 0) / faceRegionBrightness.length
           : (avgSkin.r + avgSkin.g + avgSkin.b) / 3
         
-        console.log(`Overall face brightness (from lighting assessment): ${overallFaceBrightness.toFixed(1)}`)
+        console.log(`Overall face brightness: ${overallFaceBrightness.toFixed(1)}`)
         
-        // Calculate exposure-aware correction factor
-        let exposureFactor = 1.0
-        if (exposureTime !== undefined) {
-          // Typical exposure times: 1000-30000 μs (1-30ms)
-          // Low exposure time (< 5000) = bright environment, camera reducing exposure
-          // High exposure time (> 15000) = dark environment, camera increasing exposure
-          const normalExposure = 8000 // Target: 8ms exposure
-          exposureFactor = exposureTime / normalExposure
-          console.log(`💡 Exposure-based correction factor: ${exposureFactor.toFixed(2)}x (${exposureTime}μs / ${normalExposure}μs)`)
-        }
-        
-        // Combine brightness normalization with exposure metadata
+        // Smart adaptive normalization based on lighting analysis
+        // Target: 160 brightness (well-lit indoor conditions)
         const targetBrightness = 160
-        const brightnessFactor = targetBrightness / overallFaceBrightness
-        const combinedFactor = exposureTime !== undefined 
-          ? (brightnessFactor * 0.6) + (exposureFactor * 0.4) // Weighted average
-          : brightnessFactor // Fallback to brightness-only
+        let correctionFactor = targetBrightness / overallFaceBrightness
         
-        console.log(`Brightness correction factor: ${brightnessFactor.toFixed(2)}x`)
-        console.log(`Combined correction factor: ${combinedFactor.toFixed(2)}x`)
-        
-        // Apply exposure-aware normalization
-        const normalizedSkin = {
-          r: Math.min(255, Math.max(0, avgSkin.r * combinedFactor)),
-          g: Math.min(255, Math.max(0, avgSkin.g * combinedFactor)),
-          b: Math.min(255, Math.max(0, avgSkin.b * combinedFactor))
+        // Apply intelligent limits based on detected lighting condition
+        if (overallFaceBrightness < 100) {
+          // Very dark: limit boost to 1.8x to avoid noise amplification
+          correctionFactor = Math.min(correctionFactor, 1.8)
+          console.log(`⚠️ Very dark lighting detected - limiting correction to 1.8x`)
+        } else if (overallFaceBrightness < 130) {
+          // Dark: limit boost to 1.5x
+          correctionFactor = Math.min(correctionFactor, 1.5)
+          console.log(`⚠️ Dark lighting detected - limiting correction to 1.5x`)
+        } else if (overallFaceBrightness > 200) {
+          // Very bright: limit reduction to 0.7x
+          correctionFactor = Math.max(correctionFactor, 0.7)
+          console.log(`⚠️ Very bright lighting detected - limiting correction to 0.7x`)
+        } else if (overallFaceBrightness > 180) {
+          // Bright: limit reduction to 0.8x
+          correctionFactor = Math.max(correctionFactor, 0.8)
+          console.log(`⚠️ Bright lighting detected - limiting correction to 0.8x`)
         }
-        console.log(`Skin RGB (normalized): R=${normalizedSkin.r.toFixed(1)}, G=${normalizedSkin.g.toFixed(1)}, B=${normalizedSkin.b.toFixed(1)}`)
+        
+        console.log(`Brightness correction factor: ${correctionFactor.toFixed(2)}x`)
+        
+        // Apply normalization
+        const normalizedSkin = {
+          r: Math.min(255, Math.max(0, Math.round(avgSkin.r * correctionFactor))),
+          g: Math.min(255, Math.max(0, Math.round(avgSkin.g * correctionFactor))),
+          b: Math.min(255, Math.max(0, Math.round(avgSkin.b * correctionFactor)))
+        }
+        console.log(`Skin RGB (normalized): R=${normalizedSkin.r}, G=${normalizedSkin.g}, B=${normalizedSkin.b}`)
         
         const lab = rgbToLab(normalizedSkin.r, normalizedSkin.g, normalizedSkin.b)
         skinToneITA = calculateITA(lab.L, lab.b)
