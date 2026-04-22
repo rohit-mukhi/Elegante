@@ -4,7 +4,9 @@ import { useAppearanceDetection } from '../hooks/useAppearanceDetection'
 // TODO: CNN - Will be used later with better dataset
 // import { useColorRecommendation } from '../hooks/useColorRecommendation'
 import { useBackendRecommendation } from '../hooks/useBackendRecommendation'
-import { getColorRgba, expandColors } from '../utils/colorPalette'
+import { getColorRgba } from '../utils/colorPalette'
+// TODO: CNN - Will be used later with better dataset
+// import { expandColors } from '../utils/colorPalette'
 import { VoiceNavigation } from '../components/VoiceNavigation'
 import { VoiceIndicator } from '../components/VoiceIndicator'
 import { useVoice } from '../contexts/VoiceContext'
