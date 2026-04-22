@@ -120,7 +120,6 @@ export default function Home() {
       {/* Voice Navigation */}
       <VoiceNavigation 
         isEnabled={isVoiceEnabled}
-        onCategoryChange={setSelectedCategory}
       />
       
       {/* Voice Indicator */}

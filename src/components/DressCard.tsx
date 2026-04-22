@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { DressItem } from '../contexts/SearchContext'
+import type { DressItem } from '../contexts/SearchContext'
 
 interface DressCardProps {
   dress: DressItem

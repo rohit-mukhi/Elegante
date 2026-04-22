@@ -31,18 +31,6 @@ export function useIntentDetection() {
     start_camera: "start camera turn on camera activate camera",
     stop_camera: "stop camera turn off camera deactivate camera",
     analyze: "analyze my features scan appearance detect colors what colors suit me",
-    search_outfit: "show me dress find outfit search clothes wedding party formal casual"
-  }
-
-  // Define your intents with example phrases
-  const intents = {
-    back: "navigate to previous page go back return",
-    home: "go to home page main page homepage",
-    open_mirror: "open virtual mirror try on clothes show mirror",
-    open_stylist: "open stylist page color analysis style analysis",
-    start_camera: "start camera turn on camera activate camera",
-    stop_camera: "stop camera turn off camera deactivate camera",
-    analyze: "analyze my features scan appearance detect colors what colors suit me",
     search_outfit: "show me dress find outfit search clothes wedding party formal casual",
     try_dress: "try dress wear put on select choose",
     next_dress: "next dress show next move forward",

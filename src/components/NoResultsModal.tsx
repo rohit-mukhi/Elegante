@@ -17,7 +17,7 @@ export function NoResultsModal({ isOpen, onClose }: NoResultsModalProps) {
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         className="bg-white rounded-2xl p-8 shadow-2xl max-w-sm mx-4"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
       >
         <div className="flex flex-col items-center gap-4">
           {/* Icon */}
