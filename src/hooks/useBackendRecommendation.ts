@@ -31,7 +31,8 @@ export const useBackendRecommendation = () => {
     setError(null);
 
     try {
-      console.log('🚀 Sending features to backend:', features);
+      console.log('🚀 [FRONTEND] Sending features to backend:', features);
+      console.log('🌐 [FRONTEND] Backend URL:', BACKEND_URL);
 
       const response = await fetch(BACKEND_URL, {
         method: 'POST',
@@ -41,26 +42,31 @@ export const useBackendRecommendation = () => {
         body: JSON.stringify(features),
       });
 
+      console.log('📡 [FRONTEND] Response status:', response.status, response.statusText);
+
       if (!response.ok) {
         throw new Error(`Backend error: ${response.status} ${response.statusText}`);
       }
 
       const data: BackendRecommendationResponse = await response.json();
+      console.log('📦 [FRONTEND] Full response from backend:', data);
 
       if (!data.success || !data.colors) {
         throw new Error('Invalid response from backend');
       }
 
-      console.log('✅ Received colors from backend:', data.colors);
+      console.log('✅ [FRONTEND] Received colors from Groq LLM via backend:', data.colors);
+      console.log('🎨 [FRONTEND] Number of colors:', data.colors.length);
 
       return data.colors;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to get recommendations';
-      console.error('❌ Backend recommendation error:', errorMessage);
+      console.error('❌ [FRONTEND] Backend recommendation error:', errorMessage);
       setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
+      console.log('🏁 [FRONTEND] Recommendation request completed');
     }
   };
 
