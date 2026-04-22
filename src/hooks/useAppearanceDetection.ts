@@ -230,12 +230,12 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
     
     console.log(`ITA Adjustment: Original=${ita.toFixed(2)}, Adjusted=${adjustedITA.toFixed(2)} (brightness=${avgBrightness.toFixed(1)}, adjustment=${adjustment})`)
     
-    // Calibrated thresholds for better accuracy
-    if (adjustedITA > 55) return 'Very Fair'
-    if (adjustedITA > 41) return 'Fair'
-    if (adjustedITA > 28) return 'Medium'
-    if (adjustedITA > 19) return 'Olive'
-    if (adjustedITA > 10) return 'Brown'
+    // Stricter thresholds - harder to be classified as Very Fair or Fair
+    if (adjustedITA > 65) return 'Very Fair'  // Much stricter (was 55)
+    if (adjustedITA > 50) return 'Fair'       // Much stricter (was 41)
+    if (adjustedITA > 35) return 'Medium'     // Stricter (was 28)
+    if (adjustedITA > 22) return 'Olive'      // Slightly stricter (was 19)
+    if (adjustedITA > 12) return 'Brown'      // Slightly stricter (was 10)
     return 'Very Dark'
   }
 
@@ -585,8 +585,9 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
       ctx.drawImage(video, 0, 0)
       let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
       
-      // Apply white balance normalization
-      imageData = normalizeWhiteBalance(imageData)
+      // REMOVED: White balance normalization - causes inconsistent results
+      // White balance on entire frame conflicts with local skin sampling
+      // imageData = normalizeWhiteBalance(imageData)
 
       try {
         const poseResults = poseLandmarkerRef.current.detectForVideo(video, performance.now())
