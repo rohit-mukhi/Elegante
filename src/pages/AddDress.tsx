@@ -27,7 +27,7 @@ export default function AddDress() {
       // Generate embedding on frontend
       setMessage({ type: 'success', text: 'Generating embedding...' })
       const model = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2')
-      const description = `${formData.name} ${formData.category} dress for ${formData.season} in ${formData.color}`
+      const description = `${formData.category} dress for ${formData.season.split(' ')[1]?.toLowerCase() || 'summer'} wedding party formal event`
       const output = await model(description, { pooling: 'mean', normalize: true })
       const embedding = Array.from(output.data)
 
