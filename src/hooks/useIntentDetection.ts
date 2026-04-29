@@ -34,7 +34,9 @@ export function useIntentDetection() {
     search_outfit: "show me dress find outfit search clothes wedding party formal casual",
     try_dress: "try dress wear put on select choose",
     next_dress: "next dress show next move forward",
-    previous_dress: "previous dress go back show previous"
+    previous_dress: "previous dress go back show previous",
+    permission_yes: "yes yeah sure okay go ahead affirmative absolutely definitely",
+    permission_no: "no nope skip never mind not now maybe later"
   }
 
   const initialize = useCallback(async () => {

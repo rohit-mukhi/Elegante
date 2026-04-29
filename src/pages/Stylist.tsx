@@ -10,7 +10,9 @@ import { useBackendRecommendation } from '../hooks/useBackendRecommendation'
 import { VoiceNavigation } from '../components/VoiceNavigation'
 import { VoiceIndicator } from '../components/VoiceIndicator'
 import { useVoice } from '../contexts/VoiceContext'
+import { useSearch } from '../contexts/SearchContext'
 import { useGreeting } from '../hooks/useGreeting'
+import { useFashionSearch } from '../hooks/useFashionSearch'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
@@ -27,7 +29,9 @@ export default function Stylist() {
   const [colorRecommendations, setColorRecommendations] = useState<Array<{name: string, hex: string}> | null>(null)
   // const [debugInfo, setDebugInfo] = useState<string>('') // Disabled for production
   const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
+  const { pendingSearch, setPendingSearch, setUserFeatures, setSearchResults, setIsSearching, setShowNoResults } = useSearch()
   const { getGreeting, speak } = useGreeting()
+  const { search } = useFashionSearch()
   const hasGreetedRef = useRef(false)
 
   const startCamera = async () => {
@@ -126,6 +130,21 @@ export default function Stylist() {
       console.log('🎯 Features detected, triggering color recommendations...')
       console.log('Features:', features)
       handleGetRecommendations()
+      
+      // Store features in context
+      setUserFeatures({
+        hairColor: features.hairColor,
+        eyeColor: features.eyeColor,
+        skinTone: features.skinTone,
+        underTone: features.underTone,
+        bodyType: features.bodyType
+      })
+      
+      // Check if there's a pending search
+      if (pendingSearch) {
+        console.log('🔍 Pending search detected, proceeding with personalized search...')
+        performPersonalizedSearch()
+      }
     }
   }, [features, isAnalyzing])
 
@@ -186,6 +205,46 @@ export default function Stylist() {
     // }
   }
 
+  const performPersonalizedSearch = async () => {
+    if (!pendingSearch || !features) {
+      console.log('❌ Missing pending search or features')
+      return
+    }
+
+    console.log('🔍 Performing personalized search with user features')
+    speak('Searching for dresses that match your style')
+    setIsSearching(true)
+
+    try {
+      const result = await search(pendingSearch.embedding, {
+        hairColor: features.hairColor,
+        eyeColor: features.eyeColor,
+        skinTone: features.skinTone,
+        underTone: features.underTone,
+        bodyType: features.bodyType
+      })
+
+      setIsSearching(false)
+
+      if (result.success && result.items.length > 0) {
+        console.log(`✅ Found ${result.items.length} personalized items`)
+        setSearchResults(result.items)
+        speak(`Found ${result.items.length} dresses that complement your colors`)
+        navigate('/mirror')
+      } else {
+        console.log('❌ No items found')
+        setShowNoResults(true)
+        speak('No dresses found')
+      }
+    } catch (error) {
+      console.error('❌ Search error:', error)
+      setIsSearching(false)
+      setShowNoResults(true)
+      speak('Search failed')
+    } finally {
+      setPendingSearch(null)
+    }
+  }
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-950 via-violet-950 to-purple-900 text-zinc-50">
       {/* Voice Navigation */}

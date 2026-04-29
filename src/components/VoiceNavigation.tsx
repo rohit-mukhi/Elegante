@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useCallback, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useVoice } from '../contexts/VoiceContext'
 import { useSearch } from '../contexts/SearchContext'
@@ -21,11 +21,12 @@ export function VoiceNavigation({
   const navigate = useNavigate()
   const location = useLocation()
   const { transcript, clearTranscript } = useVoice()
-  const { setSearchResults, setIsSearching, searchResults, selectedDress, setSelectedDress, setShowNoResults } = useSearch()
+  const { setSearchResults, setIsSearching, searchResults, selectedDress, setSelectedDress, setShowNoResults, setPendingSearch, pendingSearch } = useSearch()
   const { initialize, detectIntent, generateEmbedding, isLoading, progress } = useIntentDetection()
   const { search } = useFashionSearch()
   const lastProcessedRef = useRef('')
   const isInitializingRef = useRef(false)
+  const [awaitingPermission, setAwaitingPermission] = useState(false)
 
   // Initialize MiniLM model when voice is enabled
   useEffect(() => {
@@ -112,30 +113,21 @@ export function VoiceNavigation({
         console.log('🔍 Original transcript:', transcript)
         console.log('🔍 Extracted search query:', searchQuery)
         
-        setIsSearching(true)
         setShowNoResults(false)
-        speak('Searching for dresses')
         
         generateEmbedding(searchQuery).then(async (embedding) => {
           if (embedding) {
-            console.log('🔍 Generated embedding, searching...')
-            const result = await search(embedding)
-            setIsSearching(false)
+            console.log('🔍 Generated embedding')
             
-            if (result.success && result.items.length > 0) {
-              console.log(`✅ Found ${result.items.length} items`)
-              setSearchResults(result.items)
-              speak(`Found ${result.items.length} dresses`)
-              navigate('/mirror')
-            } else {
-              console.log('❌ No items found')
-              setShowNoResults(true)
-              speak('No dresses found')
-            }
+            // Store pending search
+            setPendingSearch({ query: searchQuery, embedding })
+            setAwaitingPermission(true)
+            
+            // Ask for permission to analyze features
+            speak('Would you like me to analyze your features for personalized recommendations? Say yes or no')
           } else {
-            setIsSearching(false)
             setShowNoResults(true)
-            speak('Failed to search')
+            speak('Failed to generate search')
           }
         })
         return true
@@ -177,6 +169,59 @@ export function VoiceNavigation({
           const prevIndex = currentIndex <= 0 ? searchResults.length - 1 : currentIndex - 1
           setSelectedDress(searchResults[prevIndex])
           speak(`Showing ${searchResults[prevIndex].name}`)
+          return true
+        }
+        break
+      
+      case 'permission_yes':
+        if (awaitingPermission && pendingSearch) {
+          console.log('✅ User granted permission for feature analysis')
+          setAwaitingPermission(false)
+          speak('Great! Starting camera and analyzing your features')
+          
+          // Navigate to stylist if not already there
+          if (location.pathname !== '/stylist') {
+            navigate('/stylist')
+          }
+          
+          // Wait for navigation and then trigger camera + analysis
+          setTimeout(() => {
+            onCameraStart?.()
+            
+            // Wait for camera initialization
+            setTimeout(() => {
+              onAnalyze?.()
+            }, 2000)
+          }, location.pathname !== '/stylist' ? 500 : 100)
+          
+          return true
+        }
+        break
+      
+      case 'permission_no':
+        if (awaitingPermission && pendingSearch) {
+          console.log('❌ User declined feature analysis')
+          setAwaitingPermission(false)
+          speak('No problem! Searching without personalization')
+          
+          // Proceed with search without features
+          setIsSearching(true)
+          search(pendingSearch.embedding).then((result) => {
+            setIsSearching(false)
+            
+            if (result.success && result.items.length > 0) {
+              console.log(`✅ Found ${result.items.length} items`)
+              setSearchResults(result.items)
+              speak(`Found ${result.items.length} dresses`)
+              navigate('/mirror')
+            } else {
+              console.log('❌ No items found')
+              setShowNoResults(true)
+              speak('No dresses found')
+            }
+          })
+          
+          setPendingSearch(null)
           return true
         }
         break
