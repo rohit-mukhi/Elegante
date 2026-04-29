@@ -10,13 +10,15 @@ interface VoiceNavigationProps {
   onCameraStart?: () => void
   onCameraStop?: () => void
   onAnalyze?: () => void
+  onGenerateOutfits?: () => void
 }
 
 export function VoiceNavigation({ 
   isEnabled,
   onCameraStart,
   onCameraStop,
-  onAnalyze
+  onAnalyze,
+  onGenerateOutfits
 }: VoiceNavigationProps) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -222,6 +224,14 @@ export function VoiceNavigation({
           })
           
           setPendingSearch(null)
+          return true
+        }
+        break
+      
+      case 'create_outfits':
+        if (location.pathname === '/stylist') {
+          onGenerateOutfits?.()
+          speak('Creating stylish outfits for you')
           return true
         }
         break

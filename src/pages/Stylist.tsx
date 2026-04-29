@@ -9,10 +9,12 @@ import { useBackendRecommendation } from '../hooks/useBackendRecommendation'
 // import { expandColors } from '../utils/colorPalette'
 import { VoiceNavigation } from '../components/VoiceNavigation'
 import { VoiceIndicator } from '../components/VoiceIndicator'
+import { OutfitCard } from '../components/OutfitCard'
 import { useVoice } from '../contexts/VoiceContext'
 import { useSearch } from '../contexts/SearchContext'
 import { useGreeting } from '../hooks/useGreeting'
 import { useFashionSearch } from '../hooks/useFashionSearch'
+import { useOutfitGenerator, type GeneratedOutfit } from '../hooks/useOutfitGenerator'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
@@ -29,9 +31,11 @@ export default function Stylist() {
   const [colorRecommendations, setColorRecommendations] = useState<Array<{name: string, hex: string}> | null>(null)
   // const [debugInfo, setDebugInfo] = useState<string>('') // Disabled for production
   const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
-  const { pendingSearch, setPendingSearch, setUserFeatures, setSearchResults, setIsSearching, setShowNoResults } = useSearch()
+  const { pendingSearch, setPendingSearch, setUserFeatures, setSearchResults, setIsSearching, setShowNoResults, userFeatures } = useSearch()
   const { getGreeting, speak } = useGreeting()
   const { search } = useFashionSearch()
+  const { generateOutfits, isGenerating, progress: outfitProgress } = useOutfitGenerator()
+  const [generatedOutfits, setGeneratedOutfits] = useState<GeneratedOutfit[]>([])
   const hasGreetedRef = useRef(false)
 
   const startCamera = async () => {
@@ -245,6 +249,34 @@ export default function Stylist() {
       setPendingSearch(null)
     }
   }
+
+  const handleGenerateOutfits = async () => {
+    if (!colorRecommendations || colorRecommendations.length === 0) {
+      speak('Please analyze your features first')
+      return
+    }
+
+    console.log('🎨 Generating outfits from color recommendations')
+    speak('Creating stylish outfits for you')
+
+    const outfits = await generateOutfits(colorRecommendations, userFeatures || undefined)
+
+    if (outfits.length > 0) {
+      setGeneratedOutfits(outfits)
+      speak(`I've created ${outfits.length} stylish outfits using your personalized colors`)
+    } else {
+      speak('Could not generate outfits. Please try again')
+    }
+  }
+
+  const handleTryOutfit = (outfit: GeneratedOutfit) => {
+    console.log('👗 Trying outfit:', outfit)
+    // Store outfit items in search results
+    const allItems = [...outfit.topItems, ...outfit.bottomItems]
+    setSearchResults(allItems)
+    speak('Loading outfit in mirror')
+    navigate('/mirror')
+  }
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-950 via-violet-950 to-purple-900 text-zinc-50">
       {/* Voice Navigation */}
@@ -253,6 +285,7 @@ export default function Stylist() {
         onCameraStart={startCamera}
         onCameraStop={stopCamera}
         onAnalyze={analyzeFeatures}
+        onGenerateOutfits={handleGenerateOutfits}
       />
       
       {/* Voice Indicator */}
@@ -504,25 +537,82 @@ export default function Stylist() {
               )}
               
               {!isRecommending && colorRecommendations && colorRecommendations.length > 0 && (
-                <div className="space-y-3">
-                  {colorRecommendations.map((color, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3 rounded-lg bg-black/30 p-3 animate-fade-in"
-                      style={{ animationDelay: `${index * 100}ms` }}
-                    >
-                      <div 
-                        className="h-10 w-10 rounded-lg border border-violet-500/50 flex-shrink-0"
-                        style={{ backgroundColor: color.hex }}
-                      />
-                      <span className="text-sm font-medium text-yellow-400">{color.name}</span>
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <div className="space-y-3 mb-4">
+                    {colorRecommendations.map((color, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 rounded-lg bg-black/30 p-3 animate-fade-in"
+                        style={{ animationDelay: `${index * 100}ms` }}
+                      >
+                        <div 
+                          className="h-10 w-10 rounded-lg border border-violet-500/50 flex-shrink-0"
+                          style={{ backgroundColor: color.hex }}
+                        />
+                        <span className="text-sm font-medium text-yellow-400">{color.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={handleGenerateOutfits}
+                    disabled={isGenerating}
+                    className="w-full rounded-full border border-violet-500/70 bg-black/20 px-4 py-2 text-sm font-medium text-violet-50 transition hover:border-yellow-400 hover:text-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-yellow-400 border-t-transparent"></div>
+                        Generating Outfits...
+                      </>
+                    ) : (
+                      '🎨 Generate Outfits'
+                    )}
+                  </button>
+                </>
               )}
             </div>
           </div>
         </div>
+
+        {/* Generated Outfits Section */}
+        {generatedOutfits.length > 0 && (
+          <div className="mt-8" data-aos="fade-up">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-violet-50 mb-2">Your Personalized Outfits</h2>
+              <p className="text-sm text-violet-50/70">AI-generated combinations using your recommended colors</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {generatedOutfits.map((outfit, index) => (
+                <OutfitCard
+                  key={index}
+                  outfit={outfit}
+                  index={index}
+                  onTryOutfit={handleTryOutfit}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Outfit Generation Progress */}
+        {isGenerating && (
+          <div className="mt-8 rounded-2xl border border-violet-900/50 bg-black/35 p-6 backdrop-blur-md" data-aos="fade-up">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-yellow-400 border-t-transparent"></div>
+              <div className="flex-1">
+                <p className="text-lg font-medium text-violet-50 mb-2">{outfitProgress.message}</p>
+                <div className="w-full bg-black/50 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-yellow-400 to-purple-600 transition-all duration-300"
+                    style={{ width: `${(outfitProgress.current / outfitProgress.total) * 100}%` }}
+                  ></div>
+                </div>
+                <p className="text-sm text-violet-50/70 mt-1">
+                  Step {outfitProgress.current} of {outfitProgress.total}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
