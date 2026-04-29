@@ -10,6 +10,7 @@ import { useBackendRecommendation } from '../hooks/useBackendRecommendation'
 import { VoiceNavigation } from '../components/VoiceNavigation'
 import { VoiceIndicator } from '../components/VoiceIndicator'
 import { useVoice } from '../contexts/VoiceContext'
+import { useGreeting } from '../hooks/useGreeting'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
@@ -26,6 +27,8 @@ export default function Stylist() {
   const [colorRecommendations, setColorRecommendations] = useState<Array<{name: string, hex: string}> | null>(null)
   // const [debugInfo, setDebugInfo] = useState<string>('') // Disabled for production
   const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
+  const { getGreeting, speak } = useGreeting()
+  const hasGreetedRef = useRef(false)
 
   const startCamera = async () => {
     try {
@@ -98,6 +101,24 @@ export default function Stylist() {
       disposeAppearance()
     }
   }, [])
+
+  // Greet user when voice is enabled
+  useEffect(() => {
+    if (isVoiceEnabled && !hasGreetedRef.current) {
+      hasGreetedRef.current = true
+      // Small delay to ensure voice system is ready
+      setTimeout(() => {
+        const greeting = getGreeting('Rohit')
+        console.log('👋 Greeting user:', greeting)
+        speak(greeting)
+      }, 500)
+    }
+    
+    // Reset greeting flag when voice is disabled
+    if (!isVoiceEnabled) {
+      hasGreetedRef.current = false
+    }
+  }, [isVoiceEnabled, getGreeting, speak])
 
   useEffect(() => {
     // Automatically get color recommendations when features are analyzed
