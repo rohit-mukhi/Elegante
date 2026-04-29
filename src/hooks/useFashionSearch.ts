@@ -11,7 +11,7 @@ export interface FashionItem {
     color: string
   }
 }
-
+// Dummy comment
 export interface SearchResult {
   items: FashionItem[]
   success: boolean

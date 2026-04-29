@@ -24,7 +24,7 @@ interface BackendRecommendationResponse {
     bodyType: string;
   };
 }
-
+// Dummy comment
 const BACKEND_URL = 'https://elegante-backend-srp-rm.vercel.app/api/recommendations.js';
 
 export const useBackendRecommendation = () => {
