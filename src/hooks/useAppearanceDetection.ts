@@ -103,7 +103,12 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
           delegate
         },
         runningMode: 'VIDEO',
-        numFaces: 1
+        numFaces: 1,
+        minFaceDetectionConfidence: 0.6,
+        minFacePresenceConfidence: 0.6,
+        minTrackingConfidence: 0.6,
+        outputFaceBlendshapes: false,
+        outputFacialTransformationMatrixes: false
       }).catch(async (err) => {
         console.warn('GPU delegate failed for face, trying CPU:', err)
         setLoadingProgress({
@@ -117,7 +122,12 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
             delegate: 'CPU'
           },
           runningMode: 'VIDEO',
-          numFaces: 1
+          numFaces: 1,
+          minFaceDetectionConfidence: 0.6,
+          minFacePresenceConfidence: 0.6,
+          minTrackingConfidence: 0.6,
+          outputFaceBlendshapes: false,
+          outputFacialTransformationMatrixes: false
         })
       })
 
@@ -278,17 +288,22 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
   }
 
   const determineUndertone = (skinR: number, skinG: number, skinB: number): string => {
-    const warmth = (skinR + skinG) - (skinB * 1.5)
-    return warmth > 0 ? 'Warm' : 'Cool'
+    const lab = rgbToLab(skinR, skinG, skinB)
+    // a* > 5 = reddish, b* > 20 = yellowish = Warm
+    // b* < 12 = bluish = Cool
+    // between = Neutral
+    if (lab.b > 20 && lab.a > 5) return 'Warm'
+    if (lab.b < 12) return 'Cool'
+    return 'Neutral'
   }
 
   const classifyBodyType = (shoulderToHip: number, waistToHip: number): string => {
     if (Math.abs(shoulderToHip - 1.0) < 0.08 && waistToHip < 0.75) return 'Hourglass'
-    if (shoulderToHip > 1.05) return 'Inverted Triangle'
-    if (shoulderToHip < 0.95) return 'Triangle'
+    if (shoulderToHip > 1.08) return 'Inverted Triangle'
+    if (shoulderToHip < 0.92) return 'Triangle'
     if (waistToHip > 0.85) return 'Apple'
     if (waistToHip > 0.80 && waistToHip < 0.85) return 'Oval'
-    if (shoulderToHip > 1.0 && shoulderToHip < 1.05 && waistToHip < 0.80) return 'Trapezoid'
+    if (shoulderToHip >= 1.0 && shoulderToHip <= 1.08 && waistToHip < 0.80) return 'Trapezoid'
     return 'Rectangle'
   }
 
@@ -551,40 +566,55 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
 
       try {
         const poseResults = poseLandmarkerRef.current.detectForVideo(video, performance.now())
-      let bodyType = 'Rectangle' // Default fallback for model compatibility
-      let shoulderToHipRatio = 1.0
-      let waistToHipRatio = 0.8
+        let bodyType = 'Rectangle'
+        let shoulderToHipRatio = 1.0
+        let waistToHipRatio = 0.8
+        const aspectRatio = canvas.width / canvas.height
 
-      if (poseResults.landmarks && poseResults.landmarks.length > 0) {
-        const landmarks = poseResults.landmarks[0]
-        const leftShoulder = landmarks[11]
-        const rightShoulder = landmarks[12]
-        const leftHip = landmarks[23]
-        const rightHip = landmarks[24]
+        if (poseResults.landmarks && poseResults.landmarks.length > 0) {
+          const lm = poseResults.landmarks[0]
+          const leftShoulder  = lm[11]
+          const rightShoulder = lm[12]
+          const leftElbow     = lm[13]
+          const rightElbow    = lm[14]
+          const leftHip       = lm[23]
+          const rightHip      = lm[24]
 
-        // Check if all required landmarks are visible and in frame
-        const isShoulderVisible = leftShoulder.visibility > 0.7 && rightShoulder.visibility > 0.7
-        const isHipVisible = leftHip.visibility > 0.7 && rightHip.visibility > 0.7
-        const isInFrame = 
-          leftShoulder.x >= 0 && leftShoulder.x <= 1 &&
-          rightShoulder.x >= 0 && rightShoulder.x <= 1 &&
-          leftHip.x >= 0 && leftHip.x <= 1 &&
-          rightHip.x >= 0 && rightHip.x <= 1
+          const isVisible = (idx: number, threshold = 0.7) =>
+            lm[idx].visibility !== undefined &&
+            lm[idx].visibility! > threshold &&
+            lm[idx].x >= 0 && lm[idx].x <= 1 &&
+            lm[idx].y >= 0 && lm[idx].y <= 1
 
-        // Only calculate body type if shoulders AND hips are clearly visible
-        if (isShoulderVisible && isHipVisible && isInFrame) {
-          const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x)
-          const hipWidth = Math.abs(rightHip.x - leftHip.x)
-          
-          // Only calculate if measurements are reasonable (not too small)
-          if (shoulderWidth > 0.1 && hipWidth > 0.1) {
-            shoulderToHipRatio = shoulderWidth / hipWidth
-            const waistWidth = shoulderWidth * 0.75
-            waistToHipRatio = waistWidth / hipWidth
-            bodyType = classifyBodyType(shoulderToHipRatio, waistToHipRatio)
+          const isShoulderVisible = isVisible(11) && isVisible(12)
+          const isHipVisible      = isVisible(23) && isVisible(24)
+
+          if (isShoulderVisible && isHipVisible) {
+            // Correct for non-square frames by scaling x distances by aspect ratio
+            const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x) * aspectRatio
+            const hipWidth      = Math.abs(rightHip.x - leftHip.x) * aspectRatio
+
+            if (shoulderWidth > 0.05 && hipWidth > 0.05) {
+              shoulderToHipRatio = shoulderWidth / hipWidth
+
+              // Use elbow x-positions as waist proxy if both elbows visible
+              // Elbows at rest hang at natural waist level
+              if (isVisible(13) && isVisible(14)) {
+                const elbowSpan = Math.abs(rightElbow.x - leftElbow.x) * aspectRatio
+                // Clamp: elbow span should be between hip and shoulder width
+                const clampedWaist = Math.min(Math.max(elbowSpan, hipWidth * 0.8), shoulderWidth * 1.1)
+                waistToHipRatio = clampedWaist / hipWidth
+                console.log(`Waist from elbows: span=${elbowSpan.toFixed(3)}, clamped=${clampedWaist.toFixed(3)}, ratio=${waistToHipRatio.toFixed(3)}`)
+              } else {
+                // Fallback: estimate waist as 80% of shoulder (more realistic than 75%)
+                waistToHipRatio = (shoulderWidth * 0.80) / hipWidth
+              }
+
+              bodyType = classifyBodyType(shoulderToHipRatio, waistToHipRatio)
+              console.log(`Body ratios — shoulder/hip: ${shoulderToHipRatio.toFixed(3)}, waist/hip: ${waistToHipRatio.toFixed(3)} → ${bodyType}`)
+            }
           }
         }
-      }
 
         bodyTypeResults.push(bodyType)
 
@@ -611,62 +641,88 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
           lightingScores.push(lightingAssessment.score)
           faceRegionBrightness.push(lightingAssessment.avgBrightness)  // Store for normalization
           
-          // IMPROVED HAIR SAMPLING: Sample ABOVE forehead, not at forehead
-          const foreheadPoints = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288]
+          // HAIR SAMPLING: offset scales with face height so it works at any distance
+          // [10]=forehead top, [152]=chin — face height in pixels
+          const faceTopY  = landmarks[10].y  * canvas.height
+          const faceChinY = landmarks[152].y * canvas.height
+          const faceHeightPx = Math.abs(faceChinY - faceTopY)
+          const hairOffset = faceHeightPx * 0.15  // 15% of face height above hairline
+
+          // 22 points: original 12 + 10 upper-forehead border landmarks
+          const foreheadPoints = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
+                                   108, 69, 104, 68, 337, 299, 333, 298, 301, 67]
           const hairPoints: Array<{ x: number; y: number }> = []
-          
+
           foreheadPoints.forEach(idx => {
             if (landmarks[idx]) {
-              const x = landmarks[idx].x * canvas.width
-              const y = landmarks[idx].y * canvas.height
-              // Sample 45 pixels ABOVE forehead to get actual hair
-              const hairY = y - 45
-              if (hairY >= 0) {
-                hairPoints.push({ x, y: hairY })
-              }
+              const x    = landmarks[idx].x * canvas.width
+              const y    = landmarks[idx].y * canvas.height
+              const hairY = y - hairOffset
+              if (hairY >= 0) hairPoints.push({ x, y: hairY })
             }
           })
-          
+
           const hairSample = samplePixelsWithMedian(imageData, hairPoints, 5)
-          if (hairSample) {
-            hairSamples.push(hairSample)
-          }
+          if (hairSample) hairSamples.push(hairSample)
 
-          // IMPROVED EYE SAMPLING: Larger radius around iris points
-          const irisPoints = [468, 469, 470, 471, 472, 473, 474, 475, 476, 477]
-          const eyePoints: Array<{ x: number; y: number }> = []
-          
-          irisPoints.forEach(idx => {
-            if (landmarks[idx]) {
-              eyePoints.push({
-                x: landmarks[idx].x * canvas.width,
-                y: landmarks[idx].y * canvas.height
-              })
-            }
+          // EYE SAMPLING: separate left/right iris, exclude pupil center, radius 3
+          // Left iris ring: [469,470,471,472] — skip [468] (pupil center)
+          // Right iris ring: [474,475,476,477] — skip [473] (pupil center)
+          const leftIrisPoints: Array<{ x: number; y: number }>  = []
+          const rightIrisPoints: Array<{ x: number; y: number }> = []
+
+          ;[469, 470, 471, 472].forEach(idx => {
+            if (landmarks[idx]) leftIrisPoints.push({
+              x: landmarks[idx].x * canvas.width,
+              y: landmarks[idx].y * canvas.height
+            })
           })
-          
-          const eyeSample = samplePixelsWithMedian(imageData, eyePoints, 8)
-          if (eyeSample) {
-            eyeSamples.push(eyeSample)
+          ;[474, 475, 476, 477].forEach(idx => {
+            if (landmarks[idx]) rightIrisPoints.push({
+              x: landmarks[idx].x * canvas.width,
+              y: landmarks[idx].y * canvas.height
+            })
+          })
+
+          const leftEyeSample  = samplePixelsWithMedian(imageData, leftIrisPoints,  3)
+          const rightEyeSample = samplePixelsWithMedian(imageData, rightIrisPoints, 3)
+
+          // Pick the better-lit eye to avoid blown-out or shadowed eye contaminating result
+          let eyeSample: ColorSample | null = null
+          if (leftEyeSample && rightEyeSample) {
+            const leftBrightness  = (leftEyeSample.r  + leftEyeSample.g  + leftEyeSample.b)  / 3
+            const rightBrightness = (rightEyeSample.r + rightEyeSample.g + rightEyeSample.b) / 3
+            // Prefer the eye closer to ideal brightness (80–160 range for iris)
+            const leftDelta  = Math.abs(leftBrightness  - 120)
+            const rightDelta = Math.abs(rightBrightness - 120)
+            eyeSample = leftDelta <= rightDelta ? leftEyeSample : rightEyeSample
+          } else {
+            eyeSample = leftEyeSample ?? rightEyeSample
           }
 
-          // IMPROVED SKIN SAMPLING: Use upper cheek area closer to nose (lighter, more accurate)
-          const cheekPoints = [36, 266, 203, 423, 50, 280, 101, 330, 117, 346]
+          if (eyeSample) eyeSamples.push(eyeSample)
+
+          // SKIN SAMPLING: cheeks + nose bridge + chin for shadow-resistant coverage
+          // Cheeks (10), nose bridge (5), chin (3) = 18 total points
+          const skinPointIndices = [
+            // Upper cheeks near nose
+            36, 266, 203, 423, 50, 280, 101, 330, 117, 346,
+            // Nose bridge (least shadow variation)
+            168, 6, 197, 195, 5,
+            // Chin (complements cheeks for darker skin tones)
+            175, 199, 200
+          ]
           const skinPoints: Array<{ x: number; y: number }> = []
-          
-          cheekPoints.forEach(idx => {
-            if (landmarks[idx]) {
-              skinPoints.push({
-                x: landmarks[idx].x * canvas.width,
-                y: landmarks[idx].y * canvas.height
-              })
-            }
+
+          skinPointIndices.forEach(idx => {
+            if (landmarks[idx]) skinPoints.push({
+              x: landmarks[idx].x * canvas.width,
+              y: landmarks[idx].y * canvas.height
+            })
           })
-          
+
           const skinSample = samplePixelsWithMedian(imageData, skinPoints, 4)
-          if (skinSample) {
-            skinSamples.push(skinSample)
-          }
+          if (skinSample) skinSamples.push(skinSample)
         }
       } catch (frameError) {
         console.warn(`Frame ${frameIdx + 1} analysis failed:`, frameError)
@@ -774,7 +830,7 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         console.log(`Classified skin tone: ${skinTone}`)
         
         underTone = determineUndertone(normalizedSkin.r, normalizedSkin.g, normalizedSkin.b)
-        console.log(`Undertone: ${underTone}`)
+        console.log(`Undertone: ${underTone} (L=${lab.L.toFixed(1)}, a*=${lab.a.toFixed(1)}, b*=${lab.b.toFixed(1)})`)
       }
 
       // Use most common body type from frames
