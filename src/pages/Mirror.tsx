@@ -8,6 +8,7 @@ import { NoResultsModal } from '../components/NoResultsModal'
 import { DressCard } from '../components/DressCard'
 import { useVoice } from '../contexts/VoiceContext'
 import { useSearch } from '../contexts/SearchContext'
+import { useDeviceCapability } from '../contexts/DeviceCapabilityContext'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 
@@ -18,7 +19,8 @@ export default function Mirror() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const { isLoading: poseLoading, measurements, startDetection, stopDetection, dispose: disposePose } = useMediaPipePose(videoRef)
+  const { tier, isDetecting } = useDeviceCapability()
+  const { isLoading: poseLoading, modelTier, measurements, startDetection, stopDetection, dispose: disposePose } = useMediaPipePose(videoRef, tier)
   const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
   const { searchResults, selectedDress, setSelectedDress, isSearching, showNoResults, setShowNoResults } = useSearch()
 
@@ -37,6 +39,13 @@ export default function Mirror() {
   }
 
   const startCamera = async () => {
+    // Wait for device benchmark to complete before loading the model
+    // so the correct model (full/lite) is selected, not the unknown default
+    if (isDetecting) {
+      console.log('⏳ Waiting for device benchmark to complete...')
+      return
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -211,14 +220,17 @@ export default function Mirror() {
               {!cameraActive && (
                 <div className="absolute inset-0 flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
                   <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400/20 to-purple-600/20">
-                    <span className="text-4xl">📷</span>
+                    <span className="text-4xl">{isDetecting ? '⚡' : '📷'}</span>
                   </div>
-                  <p className="text-lg text-violet-50">Start your camera to try on outfits</p>
+                  <p className="text-lg text-violet-50">
+                    {isDetecting ? 'Optimizing for your device...' : 'Start your camera to try on outfits'}
+                  </p>
                   <button
                     onClick={startCamera}
-                    className="rounded-full bg-gradient-to-r from-yellow-400 via-gray-300 to-purple-600 px-6 py-3 text-sm font-medium text-purple-950 transition hover:brightness-110"
+                    disabled={isDetecting}
+                    className="rounded-full bg-gradient-to-r from-yellow-400 via-gray-300 to-purple-600 px-6 py-3 text-sm font-medium text-purple-950 transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Activate Camera
+                    {isDetecting ? 'Please wait...' : 'Activate Camera'}
                   </button>
                 </div>
               )}
@@ -243,7 +255,7 @@ export default function Mirror() {
             {/* Body Measurements Card */}
             <div data-aos="fade-up" data-aos-delay="100" className="rounded-2xl border border-violet-900/50 bg-black/35 p-6 backdrop-blur-md">
               <h3 className="mb-4 text-lg font-semibold text-violet-50">Body Measurements</h3>
-              <p className="mb-2 text-xs text-violet-50/40">Camera: {cameraActive ? 'ON' : 'OFF'} | Loading: {poseLoading ? 'YES' : 'NO'} | Data: {measurements ? 'YES' : 'NO'}</p>
+              <p className="mb-2 text-xs text-violet-50/40">Camera: {cameraActive ? 'ON' : 'OFF'} | Loading: {poseLoading ? 'YES' : 'NO'} | Data: {measurements ? 'YES' : 'NO'} | Model: {modelTier?.toUpperCase() ?? tier.toUpperCase()}</p>
               {!cameraActive && (
                 <p className="text-sm text-violet-50/50">Activate camera to detect measurements</p>
               )}

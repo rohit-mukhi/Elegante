@@ -69,11 +69,14 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
       
       const pose = await PoseLandmarker.createFromOptions(vision, {
         baseOptions: {
-          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task',
           delegate
         },
         runningMode: 'VIDEO',
-        numPoses: 1
+        numPoses: 1,
+        minPoseDetectionConfidence: 0.6,
+        minPosePresenceConfidence: 0.6,
+        minTrackingConfidence: 0.6
       }).catch(async (err) => {
         console.warn('GPU delegate failed for pose, trying CPU:', err)
         setLoadingProgress({
@@ -83,11 +86,14 @@ export function useAppearanceDetection(videoRef: React.RefObject<HTMLVideoElemen
         })
         return PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task',
             delegate: 'CPU'
           },
           runningMode: 'VIDEO',
-          numPoses: 1
+          numPoses: 1,
+          minPoseDetectionConfidence: 0.6,
+          minPosePresenceConfidence: 0.6,
+          minTrackingConfidence: 0.6
         })
       })
 

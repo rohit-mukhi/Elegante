@@ -11,8 +11,12 @@ export interface BodyMeasurements {
   rightLegLength: number
 }
 
-export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement | null>) {
+const POSE_MODEL_FULL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task'
+const POSE_MODEL_LITE = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task'
+
+export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement | null>, deviceTier: 'high' | 'low' | 'unknown' = 'low') {
   const [isLoading, setIsLoading] = useState(false)
+  const [modelTier, setModelTier] = useState<'full' | 'lite' | null>(null)
   const [measurements, setMeasurements] = useState<BodyMeasurements | null>(null)
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null)
   const animationFrameRef = useRef<number | null>(null)
@@ -24,28 +28,43 @@ export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement | nu
       return poseLandmarkerRef.current
     }
 
+    const useFullModel = deviceTier === 'high'
+    const modelUrl = useFullModel ? POSE_MODEL_FULL : POSE_MODEL_LITE
+    console.log(`🤖 Mirror pose model: ${useFullModel ? 'FULL' : 'LITE'} (device tier: ${deviceTier})`)
+
     setIsLoading(true)
     try {
-      console.log('Lazy loading MediaPipe Pose model...')
       const vision = await FilesetResolver.forVisionTasks(
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
       )
-      
+
+      // Full model produces higher confidence scores — can hold 0.6
+      // Lite model produces lower confidence scores by nature — needs 0.5 to avoid over-filtering
+      const confidence = useFullModel ? 0.6 : 0.5
+
       const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-          delegate: 'GPU'
-        },
+        baseOptions: { modelAssetPath: modelUrl, delegate: 'GPU' },
         runningMode: 'VIDEO',
         numPoses: 1,
-        minPoseDetectionConfidence: 0.5,
-        minPosePresenceConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        minPoseDetectionConfidence: confidence,
+        minPosePresenceConfidence: confidence,
+        minTrackingConfidence: confidence
+      }).catch(async () => {
+        console.warn('GPU delegate failed, falling back to CPU')
+        return PoseLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: modelUrl, delegate: 'CPU' },
+          runningMode: 'VIDEO',
+          numPoses: 1,
+          minPoseDetectionConfidence: confidence,
+          minPosePresenceConfidence: confidence,
+          minTrackingConfidence: confidence
+        })
       })
 
       poseLandmarkerRef.current = poseLandmarker
       isInitializedRef.current = true
-      console.log('MediaPipe Pose model loaded successfully')
+      setModelTier(useFullModel ? 'full' : 'lite')
+      console.log(`✅ Mirror pose model loaded: ${useFullModel ? 'FULL' : 'LITE'}`)
       setIsLoading(false)
       return poseLandmarker
     } catch (error) {
@@ -53,7 +72,7 @@ export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement | nu
       setIsLoading(false)
       return null
     }
-  }, [])
+  }, [deviceTier])
 
   const calculateDistance = (point1: any, point2: any): number => {
     const dx = point1.x - point2.x
@@ -221,6 +240,7 @@ export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement | nu
 
   return {
     isLoading,
+    modelTier,
     measurements,
     startDetection,
     stopDetection,
