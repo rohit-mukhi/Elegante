@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMediaPipePose } from '../hooks/useMediaPipePose'
+import { useDressOverlay } from '../hooks/useDressOverlay'
+import type { DressCategory } from '../hooks/useDressOverlay'
 import { VoiceNavigation } from '../components/VoiceNavigation'
 import { VoiceIndicator } from '../components/VoiceIndicator'
 import { LoadingModal } from '../components/LoadingModal'
@@ -19,23 +21,34 @@ export default function Mirror() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const overlayMountRef = useRef<HTMLDivElement>(null)
   const { tier, isDetecting } = useDeviceCapability()
   const { isLoading: poseLoading, modelTier, measurements, startDetection, stopDetection, dispose: disposePose } = useMediaPipePose(videoRef, tier)
+  const { initialize: initOverlay, loadDress, renderFrame, resize, clearDress, dispose: disposeOverlay } = useDressOverlay(overlayMountRef, tier)
   const { isVoiceEnabled, setIsVoiceEnabled, isSupported } = useVoice()
   const { searchResults, selectedDress, setSelectedDress, isSearching, showNoResults, setShowNoResults } = useSearch()
 
+  const TEST_IMAGE = '/dresses/t-shirt.png'
+
   const outfits = [
-    { name: 'Classic Shirt', icon: '👔', color: 'Blue' },
-    { name: 'Denim Jacket', icon: '🧥', color: 'Indigo' },
-    { name: 'Casual Tee', icon: '👕', color: 'White' },
-    { name: 'Formal Blazer', icon: '🎩', color: 'Black' }
+    { name: 'Classic Shirt', color: 'Blue' },
+    { name: 'Denim Jacket', color: 'Indigo' },
+    { name: 'Casual Tee', color: 'White' },
+    { name: 'Formal Blazer', color: 'Black' }
   ]
+
+  // Infer dress category from metadata or name — fallback to full
+  const inferCategory = (dress: typeof searchResults[0]): DressCategory => {
+    const cat = dress.category?.toLowerCase() ?? ''
+    if (cat.includes('top') || cat.includes('shirt') || cat.includes('blouse') || cat.includes('jacket')) return 'top'
+    if (cat.includes('bottom') || cat.includes('pant') || cat.includes('skirt') || cat.includes('trouser')) return 'bottom'
+    return 'full'
+  }
 
   const handleDressSelect = (dress: typeof searchResults[0]) => {
     setSelectedDress(dress)
-    console.log('Selected dress:', dress.name)
-    console.log('3D Model URL:', dress.cloudinaryUrl)
-    // TODO: Load 3D model from dress.cloudinaryUrl
+    loadDress(dress.imageUrl, inferCategory(dress))
+    console.log('👗 Dress selected:', dress.name, '| URL:', dress.imageUrl)
   }
 
   const startCamera = async () => {
@@ -61,11 +74,18 @@ export default function Mirror() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream
         videoRef.current.onloadedmetadata = async () => {
-          if (canvasRef.current && videoRef.current) {
-            canvasRef.current.width = videoRef.current.videoWidth
+          if (canvasRef.current && videoRef.current && overlayMountRef.current) {
+            canvasRef.current.width  = videoRef.current.videoWidth
             canvasRef.current.height = videoRef.current.videoHeight
-            console.log('Starting detection with canvas:', canvasRef.current.width, canvasRef.current.height)
-            await startDetection(canvasRef.current)
+
+            const videoW = videoRef.current.videoWidth
+            const videoH = videoRef.current.videoHeight
+
+            await startDetection(canvasRef.current, (lms) => {
+              const containerW = overlayMountRef.current?.clientWidth  || videoRef.current?.clientWidth  || videoW
+              const containerH = overlayMountRef.current?.clientHeight || videoRef.current?.clientHeight || videoH
+              renderFrame(lms, containerW, containerH, videoW, videoH)
+            })
           }
         }
       }
@@ -79,6 +99,7 @@ export default function Mirror() {
 
   const stopCamera = () => {
     stopDetection()
+    clearDress()
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
       streamRef.current = null
@@ -93,10 +114,26 @@ export default function Mirror() {
     AOS.init({ duration: 800, once: false, mirror: true })
     return () => {
       stopCamera()
-      // Dispose models when component unmounts
       disposePose()
+      disposeOverlay()
     }
   }, [])
+
+  // Initialize Three.js overlay once mount div is ready
+  useEffect(() => {
+    if (overlayMountRef.current) initOverlay()
+  }, [initOverlay])
+
+  // Keep overlay canvas sized to match the video container
+  useEffect(() => {
+    if (!overlayMountRef.current) return
+    const ro = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect
+      resize(width, height)
+    })
+    ro.observe(overlayMountRef.current)
+    return () => ro.disconnect()
+  }, [resize])
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-950 via-violet-950 to-purple-900 text-zinc-50">
@@ -189,6 +226,7 @@ export default function Mirror() {
           <div data-aos="fade-right" className="rounded-2xl border border-violet-900/50 bg-black/35 p-4 backdrop-blur-md sm:p-6">
             <h2 className="mb-3 text-lg font-semibold text-violet-50 sm:mb-4 sm:text-xl">Virtual Try-On</h2>
             <div className="relative aspect-3/4 overflow-hidden rounded-xl bg-gradient-to-b from-purple-900 via-violet-950 to-purple-950">
+              {/* Video feed */}
               <video
                 ref={videoRef}
                 autoPlay
@@ -203,10 +241,17 @@ export default function Mirror() {
                 style={{ transform: 'scaleX(-1)', display: cameraActive ? 'block' : 'none' }}
                 className="absolute inset-0 h-full w-full object-cover"
               />
+              {/* Pose skeleton canvas (MediaPipe DrawingUtils) */}
               <canvas
                 ref={canvasRef}
                 style={{ transform: 'scaleX(-1)', display: cameraActive ? 'block' : 'none' }}
                 className="absolute inset-0 h-full w-full object-cover"
+              />
+              {/* Three.js dress overlay — transparent WebGL canvas on top */}
+              <div
+                ref={overlayMountRef}
+                style={{ visibility: cameraActive ? 'visible' : 'hidden' }}
+                className="absolute inset-0 h-full w-full pointer-events-none"
               />
               {poseLoading && cameraActive && (
                 <div className="absolute inset-0 flex h-full flex-col items-center justify-center gap-4 bg-black/60 backdrop-blur-sm">
@@ -314,12 +359,15 @@ export default function Mirror() {
                   {outfits.map((item) => (
                     <button
                       key={item.name}
+                      onClick={() => loadDress(TEST_IMAGE, 'top')}
                       className="w-full rounded-xl border border-violet-900/50 bg-black/20 p-4 text-left transition hover:border-yellow-400/50"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="h-16 w-16 rounded-lg bg-gradient-to-br from-purple-900 to-purple-950 flex items-center justify-center text-3xl">
-                          {item.icon}
-                        </div>
+                        <img
+                          src={TEST_IMAGE}
+                          alt={item.name}
+                          className="h-16 w-16 rounded-lg object-contain bg-white/5 flex-shrink-0"
+                        />
                         <div>
                           <p className="font-medium text-violet-50">{item.name}</p>
                           <p className="text-xs text-violet-50/60">Tap to try on</p>

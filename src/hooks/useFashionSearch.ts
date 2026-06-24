@@ -4,7 +4,7 @@ export interface FashionItem {
   _id: string
   name: string
   category: string
-  cloudinaryUrl: string
+  imageUrl: string
   embedding: number[]
   metadata: {
     season: string

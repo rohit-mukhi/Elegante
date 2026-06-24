@@ -11,6 +11,13 @@ export interface BodyMeasurements {
   rightLegLength: number
 }
 
+export interface PoseLandmark {
+  x: number
+  y: number
+  z: number
+  visibility?: number
+}
+
 const POSE_MODEL_FULL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task'
 const POSE_MODEL_LITE = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task'
 
@@ -18,10 +25,13 @@ export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement | nu
   const [isLoading, setIsLoading] = useState(false)
   const [modelTier, setModelTier] = useState<'full' | 'lite' | null>(null)
   const [measurements, setMeasurements] = useState<BodyMeasurements | null>(null)
+  const [landmarks, setLandmarks] = useState<PoseLandmark[] | null>(null)
   const poseLandmarkerRef = useRef<PoseLandmarker | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const isInitializedRef = useRef(false)
+  // Direct render callback — bypasses React state for same-frame Three.js rendering
+  const onFrameRef = useRef<((lms: PoseLandmark[] | null) => void) | null>(null)
 
   const initializePoseLandmarker = useCallback(async () => {
     if (isInitializedRef.current || poseLandmarkerRef.current) {
@@ -179,45 +189,42 @@ export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement | nu
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
     if (results.landmarks && results.landmarks.length > 0) {
-      const landmarks = results.landmarks[0]
-      
+      const lm = results.landmarks[0]
+
+      // Expose raw landmarks for Three.js dress overlay
+      setLandmarks(lm as PoseLandmark[])
+      // Fire direct render callback synchronously in same rAF frame
+      onFrameRef.current?.(lm as PoseLandmark[])
+
       // Calculate measurements
-      const bodyMeasurements = calculateMeasurements(landmarks)
+      const bodyMeasurements = calculateMeasurements(lm)
       if (bodyMeasurements) {
         setMeasurements(bodyMeasurements)
       } else {
         setMeasurements(null)
       }
 
-      // Draw landmarks
+      // Draw skeleton overlay
       const drawingUtils = new DrawingUtils(ctx)
-      
-      // Draw connectors
-      drawingUtils.drawConnectors(
-        landmarks,
-        PoseLandmarker.POSE_CONNECTIONS,
-        { color: '#facc15', lineWidth: 2 }
-      )
-      
-      // Draw landmarks
-      drawingUtils.drawLandmarks(landmarks, {
-        color: '#facc15',
-        fillColor: '#8b5cf6',
-        radius: 4
-      })
+      drawingUtils.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, { color: '#facc15', lineWidth: 2 })
+      drawingUtils.drawLandmarks(lm, { color: '#facc15', fillColor: '#8b5cf6', radius: 4 })
     } else {
+      setLandmarks(null)
       setMeasurements(null)
+      onFrameRef.current?.(null)
     }
 
     animationFrameRef.current = requestAnimationFrame(detectPose)
   }
 
-  const startDetection = async (canvas: HTMLCanvasElement) => {
+  const startDetection = async (
+    canvas: HTMLCanvasElement,
+    onFrame?: (lms: PoseLandmark[] | null) => void
+  ) => {
     canvasRef.current = canvas
+    if (onFrame) onFrameRef.current = onFrame
     const model = await initializePoseLandmarker()
-    if (model) {
-      detectPose()
-    }
+    if (model) detectPose()
   }
 
   const stopDetection = () => {
@@ -241,6 +248,7 @@ export function useMediaPipePose(videoRef: React.RefObject<HTMLVideoElement | nu
   return {
     isLoading,
     modelTier,
+    landmarks,
     measurements,
     startDetection,
     stopDetection,

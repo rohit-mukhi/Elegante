@@ -10,7 +10,7 @@ export default function AddDress() {
   const [formData, setFormData] = useState({
     name: '',
     category: '',
-    cloudinaryUrl: '',
+    imageUrl: '',
     season: '',
     color: '#77B5FE'
   })
@@ -51,7 +51,7 @@ export default function AddDress() {
         setFormData({
           name: '',
           category: '',
-          cloudinaryUrl: '',
+          imageUrl: '',
           season: '',
           color: '#77B5FE'
         })
@@ -130,20 +130,20 @@ export default function AddDress() {
               </select>
             </div>
 
-            {/* Cloudinary URL */}
+            {/* Image URL */}
             <div>
               <label className="mb-2 block text-sm font-medium text-violet-50">
-                Cloudinary URL (3D Model) <span className="text-red-400">*</span>
+                Dress Image URL <span className="text-red-400">*</span>
               </label>
               <input
                 type="url"
                 required
-                value={formData.cloudinaryUrl}
-                onChange={(e) => setFormData({ ...formData, cloudinaryUrl: e.target.value })}
-                placeholder="https://res.cloudinary.com/demo/image/upload/sample.glb"
+                value={formData.imageUrl}
+                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                placeholder="https://res.cloudinary.com/demo/image/upload/dress.png"
                 className="w-full rounded-lg border border-violet-500/50 bg-black/30 px-4 py-3 text-violet-50 placeholder-violet-50/40 focus:border-yellow-400 focus:outline-none"
               />
-              <p className="mt-1 text-xs text-violet-50/50">Must be a .glb or .gltf 3D model URL</p>
+              <p className="mt-1 text-xs text-violet-50/50">PNG with transparent background recommended for best overlay results</p>
             </div>
 
             {/* Season */}
